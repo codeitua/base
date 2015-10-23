@@ -1,0 +1,16 @@
+ {
+    "name": "CoreIt",
+    "type": "Utils",
+    "description": "Additional files",
+    "authors": [
+        {
+            "name": "CodeIt",
+            "homepage": "http://codeit.net"
+        }
+    ],
+    "autoload": {
+        "psr-4": { 
+			"Utils": "src" 
+		}
+    }
+}
