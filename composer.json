@@ -1,16 +1,15 @@
- {
-    "name": "CoreIt",
-    "type": "Utils",
-    "description": "Additional files",
-    "authors": [
-        {
-            "name": "CodeIt",
-            "homepage": "http://codeit.net"
-        }
-    ],
-    "autoload": {
-        "psr-4": { 
-			"Utils": "src" 
+{
+	"packages": {
+		"codeit/utils": {
+			"dev-master": {
+				"name": "codeit/utils",
+				"version": "dev-master",
+				"source": {
+					"url": "/var/lib/git/utils.git",
+					"type": "git",
+					"reference": "master"
+				}
+			}
 		}
-    }
+	}
 }
