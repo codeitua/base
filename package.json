@@ -1,8 +1,0 @@
- {
-	"repositories": [
-    {
-        "type": "composer",
-        "url": "/var/lib/git/utils.git"
-    }
-]
- }
