@@ -38,7 +38,7 @@ class Registry extends ArrayObject
      * Class name of the singleton registry object.
      * @var string
      */
-    private static $registryClassName = 'Utils\\Registry';
+    private static $registryClassName = 'Codeit\\Utils\\Registry';
 
     /**
      * Registry object provides storage for shared objects.
