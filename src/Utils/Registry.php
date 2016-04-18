@@ -18,7 +18,7 @@
  * @license    http://framework.zend.com/license/new-bsd     New BSD License
  */
 
-namespace Utils;
+namespace Codeit\Utils;
 
 use ArrayObject;
 use DomainException;
