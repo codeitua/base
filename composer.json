@@ -1,6 +1,6 @@
  {
-    "name": "codeit",
-	"version": "0.0.2",
+    "name": "codeit/base",
+    "version": "0.0.2",
     "type": "Utils",
     "description": "Additional files",
     "authors": [
@@ -11,7 +11,7 @@
     ],
     "autoload": {
         "psr-4": { 
-			"Codeit\\": "src/" 
-		}
+            "Codeit\\": "src/" 
+        }
     }
 }
