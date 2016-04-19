@@ -3,6 +3,7 @@ namespace CodeIT\Controller;
 
 use Application\Lib\User;
 use CodeIT\Utils\Registry;
+use CodeIT\ACL\Authentication;
 use Zend\EventManager\EventManagerInterface;
 use Zend\Mvc\Controller\AbstractRestfulController;
 use Zend\View\Model\ViewModel;
@@ -192,7 +193,7 @@ abstract class AbstractApiController extends AbstractRestfulController {
 
 			$response = $controller->ready();
 
-			$auth = new \Application\Lib\Authentication();
+			$auth = new Authentication();
 			if (!$response) {
 				$response = $auth->preDispatch($params, $this, $this->isAjax, true);
 			}

@@ -1,17 +1,20 @@
  {
     "name": "codeit/base",
-    "version": "0.0.5",
+    "version": "0.0.6",
     "type": "Utils",
-    "description": "Additional files",
+    "description": "CodeIT Carcass base files",
     "authors": [
         {
             "name": "CodeIt",
-            "homepage": "http://codeit.net"
+            "homepage": "http://codeit.com.ua"
         }
     ],
     "autoload": {
         "psr-4": { 
             "CodeIT\\": "src/" 
         }
+    },
+	"require": {
+        "zendframework/zendframework": "<2.6",
     }
 }

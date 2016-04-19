@@ -2,6 +2,7 @@
 namespace CodeIT\Controller;
 
 use Application\Lib\User;
+use CodeIT\ACL\Authentication;
 use CodeIT\Utils\Registry;
 use Zend\Mvc\Controller\AbstractActionController;
 use Zend\EventManager\EventManagerInterface;
@@ -88,7 +89,7 @@ abstract class AbstractController extends AbstractActionController {
 
 			$controller->ready();
 
-			$auth = new \Application\Lib\Authentication();
+			$auth = new Authentication();
 			if($response = $auth->preDispatch($params, $this, $this->isAjax, $this->returnForbidden)) {
 				$e->stopPropagation(true);
 				$jsonRenderer = new \Zend\View\Renderer\JsonRenderer();
