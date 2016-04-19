@@ -15,6 +15,6 @@
         }
     },
 	"require": {
-        "zendframework/zendframework": "<2.6",
+        "zendframework/zendframework": "<2.6"
     }
 }
