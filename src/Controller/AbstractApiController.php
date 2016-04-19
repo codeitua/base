@@ -60,7 +60,7 @@ abstract class AbstractApiController extends AbstractRestfulController {
 		);
 
 		if (strtoupper($this->request->getMethod()) == 'OPTIONS') {
-			return 'ok'; // we should return http 200 with empty body
+			return true; // we should return http 200 with empty body
 		}
 		
 		try {
@@ -200,7 +200,9 @@ abstract class AbstractApiController extends AbstractRestfulController {
 			if( $response !== false) {
 				$e->stopPropagation(true);
 				$jsonRenderer = new \Zend\View\Renderer\JsonRenderer();
-				$this->getResponse()->setContent($jsonRenderer->render($response));
+				if (!is_bool($response)) {
+					$this->getResponse()->setContent($jsonRenderer->render($response));
+				}
 				return $this->getResponse();
 			}
 		});
