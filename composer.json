@@ -1,6 +1,6 @@
  {
     "name": "codeit/base",
-    "version": "0.0.6",
+    "version": "0.1.0",
     "type": "Utils",
     "description": "CodeIT Carcass base files",
     "authors": [
@@ -14,7 +14,7 @@
             "CodeIT\\": "src/" 
         }
     },
-	"require": {
+    "require": {
         "zendframework/zendframework": "<2.6"
     }
 }
