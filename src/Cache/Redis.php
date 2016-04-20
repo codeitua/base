@@ -1,11 +1,10 @@
 <?php
 namespace CodeIT\Cache;
 
-use Zend\ServiceManager\ServiceLocatorAwareInterface;
 use Zend\ServiceManager\ServiceLocatorInterface; 
 use Zend\ServiceManager\ServiceLocatorAwareTrait;
 
-class Redis implements ServiceLocatorAwareInterface {
+class Redis {
 
 	use ServiceLocatorAwareTrait;
 
