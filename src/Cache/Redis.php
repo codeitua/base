@@ -127,7 +127,7 @@ class Redis {
 	 */
 	public function deleteByMask($name) {
 		if($this->connected) {
-			$mask = sprintf('%s%s*', $this->config['namespace'], $name);
+			$mask = sprintf('%s*', $name);
 			$this->redis->evaluate("return redis.call('del', unpack(redis.call('keys', ARGV[1])))", [$mask]);
 		}
 	}
