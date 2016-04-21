@@ -13,7 +13,7 @@ class NotExistValidator extends AbstractValidator{
 	private $model;
 	private $field;
 	private $id;
-	private $idFiledName;
+	private $idFieldName;
 
 	const EXIST = 'aexist';
 
@@ -25,10 +25,10 @@ class NotExistValidator extends AbstractValidator{
 	 * @param \CodeIT\Model\AppTable
 	 * @param string|[] $field
 	 * @param int $id
-	 * @param int $idFiledName
+	 * @param int idFieldName
 	 * @param int $message
 	 */
-	public function __construct(AppTable $model, $field, $id = false, $idFiledName = false, $message = 'Item with the same value already exists') {
+	public function __construct(AppTable $model, $field, $id = false, $idFieldName = false, $message = 'Item with the same value already exists') {
 		parent::__construct();
 		$this->messageTemplates = array(
 			self::EXIST => $message,
@@ -37,7 +37,7 @@ class NotExistValidator extends AbstractValidator{
 		$this->model = $model;
 		$this->id = $id;
 		$this->field = $field;
-		$this->idFiledName = $idFiledName ? $idFiledName : 'id';
+		$this->idFieldName = $idFieldName ? $idFieldName : 'id';
 	}
 
 	public function isValid($value) {
@@ -45,13 +45,13 @@ class NotExistValidator extends AbstractValidator{
 		if($this->id && is_array($this->id)){
 			if(sizeof($this->id) > 1) {
 				$expresion = new Expression();
-				$sql = ' '.$this->idFiledName.' NOT IN ('.implode(",", $this->id).')';
+				$sql = ' '.$this->idFieldName.' NOT IN ('.implode(",", $this->id).')';
 				$expresion->setExpression($sql);
 				$where[] = $expresion;
 			}
 		}
 		else if($this->id) {
-			$where[] = array($this->idFiledName, '!=', $this->id);
+			$where[] = array($this->idFieldName, '!=', $this->id);
 		}
 
 		if($this->model->find($where)){
