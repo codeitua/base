@@ -53,6 +53,8 @@ abstract class AbstractController extends AbstractActionController {
 
 		$this->user = $user;
 		$this->userId = $user->getId();
+
+		return false; // go further, everything is ok
 	}
 
 	/**
@@ -87,10 +89,14 @@ abstract class AbstractController extends AbstractActionController {
 			$matches = $e->getRouteMatch();
 			$params = $matches->getParams();
 
-			$controller->ready();
+			$response = $controller->ready();
 
 			$auth = new Authentication();
-			if($response = $auth->preDispatch($params, $this, $this->isAjax, $this->returnForbidden)) {
+			if (!$response) {
+				$response = $auth->preDispatch($params, $this, $this->isAjax, $this->returnForbidden);
+			} 
+
+			if ($response !== false) {
 				$e->stopPropagation(true);
 				$jsonRenderer = new \Zend\View\Renderer\JsonRenderer();
 				$this->getResponse()->setContent($jsonRenderer->render($response));
@@ -134,17 +140,18 @@ abstract class AbstractController extends AbstractActionController {
 
 		$response->setStatusCode(403);
 		if(!$message) {
-			$message = _('This action is forbidden for your role');
+			$message = _('Sorry, this action is forbidden for your role.');
 		}
-		if ($this->isAjax)
+		if ($this->isAjax) {
 			return $this->sendJSONError($message, 403);
-		else {
-			$view = new ViewModel(array(
-		    'error' => _('This action is forbidden for your role'),
-		  ));
-		  $view->setTemplate('application/index/forbidden.phtml');
-			return $view;
 		}
+
+		$view = new ViewModel(array(
+			'error' => $message,
+		));
+
+		$view->setTemplate('error/forbidden.phtml');
+		return $view;
 	}
 
 	/**

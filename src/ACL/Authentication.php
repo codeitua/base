@@ -51,7 +51,7 @@ class Authentication {
 				else {
 					$controller->getResponse()->getHeaders()->addHeaderLine(
 						'Location',
-						APP_URL.'auth?r='.urlencode($_SERVER['REQUEST_URI'])
+						URL.'auth?r='.urlencode($_SERVER['REQUEST_URI'])
 					);
 					$controller->getResponse()->setStatusCode(302);
 					return true; // no content, abort execution, redirect
