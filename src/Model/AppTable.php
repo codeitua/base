@@ -271,7 +271,6 @@ abstract class AppTable extends TableGateway {
 		return $result;
 	}
 
-	
 	/**
 	 * Searches for items and returns ResultSet
 	 * 
@@ -383,14 +382,14 @@ abstract class AppTable extends TableGateway {
 		$platform = $this->getAdapter()->getPlatform();
 		if ($param instanceof Expression) {
 			$set = $param->getExpression();
-		} elseif (is_string($param)) {
+		} else if (is_string($param)) {
 			$set = $param;
 		} else {
 			if (is_object($param[0]) && ($param[0] instanceof Expression)) {
 				$expression = $param[0]->getExpression();
 				$param[0] = $expression;
 			}
-			elseif (strpos($param[0], '.') === false) {
+			else if (strpos($param[0], '.') === false) {
 				$param[0] = $platform->quoteIdentifierChain($param[0]);
 			} else {
 				$param[0] = substr_replace($param[0], "`", strpos($param[0], '.')+1, 0).'`';
@@ -408,21 +407,16 @@ abstract class AppTable extends TableGateway {
 					$set .= '(\'' . $this->quoteValue($param[2]) . '\')';
 				}
 			}
-			elseif (isset($param[2])){
+			else if (strtolower($param[1]) == 'like') {
+				$set .= $this->quoteValue($param[2]);
+				if (!empty($param[3])) { // add escape character
+					$set .= 'ESCAPE "'.$param[3].'"';
+				}
+			}
+			else if (isset($param[2])) {
 				$set .= $this->quoteValue($param[2]);
 			} else {
 				$set .= 'NULL';
-			}
-			if(count($param) > 3){
-				$set = '('.$set;
-				for ($index = 3; $index < count($param); $index++) {
-					if(!is_array($param[$index])){
-						throw new \Exception('4th and next params must be array');
-					}
-					$set .= ' '.array_splice($param[$index], 0, 1)[0].' ';
-					$set .= $this->prepareParam($param[$index]);
-				}
-				$set .= ')';
 			}
 		}
 		return $set;
