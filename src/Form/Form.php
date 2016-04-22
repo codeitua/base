@@ -27,8 +27,8 @@ abstract class Form extends \Zend\Form\Form {
      * @throws Exception\InvalidArgumentException
      */
     public function setData($data) {
-		$this->setInputFilter($this->getInpFilter());
 		parent::setData($data);
+		$this->setInputFilter($this->getInpFilter());
 		return $this;
 	}
 	
