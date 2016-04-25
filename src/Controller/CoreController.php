@@ -6,6 +6,7 @@ use Zend\Console\Request as ConsoleRequest;
 use Zend\Console\ColorInterface as Color;
 
 class CoreController extends AbstractActionController {
+
 	/**
 	 * Method creates new user in the database.
 	 * 
@@ -20,6 +21,7 @@ class CoreController extends AbstractActionController {
 		$console = $this->getServiceLocator()->get('console');
 		$userTable = new \Application\Model\UserTable();
 		$form = new \CodeIT\Form\CreateUserForm();
+
 		$data = [
 			'email' => $request->getParam('email'),
 			'password' => $request->getParam('password'),

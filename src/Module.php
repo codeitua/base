@@ -27,7 +27,7 @@ class Module implements
 
 	public function getConsoleUsage(AdapterInterface $console) {
 		return [
-			'user create <email> <password> [admin|registered]' => 'Create a new user',
+			'user create <email> <password> [<level>]' => 'Create a new user',
 			['email', 'Email of the user.'],
 			['password', 'Password of the user.'],
 			['level', 'Optional parameter. Default is admin.'],
