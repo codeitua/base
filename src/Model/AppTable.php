@@ -410,7 +410,7 @@ abstract class AppTable extends TableGateway {
 			else if (strtolower($param[1]) == 'like') {
 				$set .= $this->quoteValue($param[2]);
 				if (!empty($param[3])) { // add escape character
-					$set .= 'ESCAPE "'.$param[3].'"';
+					$set .= ' ESCAPE "'.$param[3].'"';
 				}
 			}
 			else if (isset($param[2])) {
