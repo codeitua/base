@@ -185,7 +185,7 @@ abstract class AppTable extends TableGateway {
 		$resultSet = $this->query("select GET_LOCK(".$this->quoteValue($name).", $timeout) as res", $params);
 		$result = $resultSet->current()->res;
 		if (!$result) {
-			throw new \Exception('Could not obtain lock on '.$name);
+			throw new Exception\CannotGetLockException('Could not obtain lock on '.$name);
 		}
 	}
 
