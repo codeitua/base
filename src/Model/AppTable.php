@@ -560,7 +560,7 @@ abstract class AppTable extends TableGateway {
 	 * @param bool $setDataToObject perform setId() call after update
 	 */
 	public function set($data, $id=false, $setDataToObject=true) {
-		$myId = $this->id;
+		$myId = $this->{static::ID_COLUMN};
 		if($id) {
 			$myId = $id;
 		}
