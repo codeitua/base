@@ -202,6 +202,95 @@ abstract class AbstractController extends AbstractActionController {
 		return $errors;
 	}
 
+    
+	/**
+	 * return unified json responce (use it for all ajax actions)
+	 * 
+	 * @param mixed $data - any data for js processor
+	 * @param string $view - ViewModel object or string to be placed on frontend
+	 * @param string $action - (values: none, redirect, alert, content, error)
+	 * @param string $status - (values: succes, error)
+	 * @param boolean $exit - echo data and die
+	 * @return ViewModel 
+	 * 
+	 */
+	public function sendJSONResponse($data = [], $view = false, $action = 'content', $status = 'success', $exit = false) {
+
+		$statusList = [
+			'success',
+			'error'
+		];
+
+		$actionList = [
+			'none',
+			'redirect',
+			'login', // display sign in/sign up form
+			'alert',
+			'content',
+			'replaceContent',
+		];
+
+		if (!in_array($status, $statusList))
+			throw new \Exception('prepareJSONResponse: Wrong response status');
+		if (!in_array($action, $actionList))
+			throw new \Exception('prepareJSONResponse: Wrong action');
+
+		if ($view instanceof ViewModel) {
+			$view->setTerminal(true);
+			$content = $this->renderView($view);
+		} else {
+			$content = $view;
+		}
+
+		$result = [
+			'status' => $status,
+			'action' => $action,
+			'content' => $content,
+			'data' => $data
+		];
+
+		$jsonView = new ViewModel([
+			'json' => $result,
+			'jsonFormat' => $this->jsonFormat,
+		]);
+		$jsonView->setTerminal(true);
+		$jsonView->setTemplate('service/json');
+
+		if ($exit) {
+			echo $this->renderView($jsonView);
+			exit;
+		} else
+			return $jsonView;
+	}
+
+	/**
+	 * send json error to client
+	 * 
+	 * @param string $text
+	 * @param int $code
+	 * @return \Zend\View\Model\ViewModel
+	 */
+	public function sendJSONError($text = '', $code = false, $title = '') {
+		if (empty($title)) 
+			$title = _('Error');
+		return $this->sendJSONResponse(['code' => $code, 'message' => $text, 'title' => $title], false, 'none', 'error', true);
+	}
+
+	public function sendJSONAlert($text, $title = '') {
+		if (empty($title)) 
+			$title = _('Warning');
+		return $this->sendJSONResponse(['content' => $text, 'title' => $title], false, 'alert', 'success');
+	}
+
+	/**
+	 * retunrns json responce with error status
+	 * 
+	 * @param string $url
+	 */
+	public function sendJSONRedirect($url) {
+		return $this->sendJSONResponse([$url], false, 'redirect', 'success');
+	}
+
 	/**
 	 * return standard json responce (use it for all ajax actions) and try to disconnect client, then continue running
 	 * 
