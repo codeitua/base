@@ -565,8 +565,8 @@ abstract class AppTable extends TableGateway {
 			$myId = $id;
 		}
 		$this->update($data, [static::ID_COLUMN => $myId]);
-		if(($myId == $this->id) && $setDataToObject)
-			$this->setId($this->id);
+		if(($myId == $this->{static::ID_COLUMN}) && $setDataToObject)
+			$this->setId($this->{static::ID_COLUMN});
 	}
 
 	/**

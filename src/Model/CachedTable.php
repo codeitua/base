@@ -287,13 +287,13 @@ class CachedTable extends AppTable {
 	 */
 	public function set($data, $id=false, $setDataToObject=true) {
 		parent::set($data, $id, false);
-		$myId = $this->id;
+		$myId = $this->{static::ID_COLUMN};
 		if ($id) {
 			$myId = $id;
 		}
 		$this->cacheDelete($myId);
-		if ($myId == $this->id && $setDataToObject) {
-			$this->setId($this->id);
+		if ($myId == $this->{static::ID_COLUMN} && $setDataToObject) {
+			$this->setId($this->{static::ID_COLUMN});
 		}
 	}
 
