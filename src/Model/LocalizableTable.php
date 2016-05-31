@@ -28,8 +28,8 @@ abstract class LocalizableTable extends CachedTable {
 	 * LocalizableTable constructor.
 	 * @param string $table
 	 */
-	public function __construct($table) {
-		parent::__construct($table);
+	public function __construct($table, $id=null) {
+		parent::__construct($table, $id);
 		$this->locTable = $this->table.'local';
 	}
 
@@ -66,10 +66,17 @@ abstract class LocalizableTable extends CachedTable {
 		return $item;
 	}
 
-	public function get($id) {
+	/**
+	 * Returns row from db with specified id
+	 *
+	 * @param int $id
+	 * @param bool $publicOnly remove private fields
+	 * @return \ArrayObject
+	 */
+	public function get($id, $publicOnly=false) {
 		$item = $this->cacheGet($id.'.'.$this->lang);
 		if(!$item) {
-			$item = parent::get($id);
+			$item = parent::get($id, $publicOnly);
 			if(isset($item->localData) && isset($item->localData[$this->lang])) {
 				$item2 = array_merge((array)$item, (array)$item->localData[$this->lang]);
 				unset($item2['localData']);
@@ -87,7 +94,7 @@ abstract class LocalizableTable extends CachedTable {
 	 * @param array $ids
 	 * @return \ArrayObject
 	 */
-	public function mget($ids) {
+	public function mget($ids, $publicOnly=false) {
 		$keys = [];
 		foreach($ids as $id) {
 			$keys[]='table.'.$this->table.'.'.$id.'.'.$this->lang;
@@ -181,10 +188,12 @@ abstract class LocalizableTable extends CachedTable {
 	 * Sets data for current id
 	 *
 	 * @param array $data
+	 * @param int|bool|false $id
+	 * @param bool $setDataToObject perform setId() call after update
 	 */
-	public function set($data) {
+	public function set($data, $id=false, $setDataToObject=true) {
 		$this->updateLocData($data);
-		parent::set($data);
+		parent::set($data, $id, $setDataToObject);
 	}
 
 	/**
