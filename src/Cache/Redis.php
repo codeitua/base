@@ -1,12 +1,7 @@
 <?php
 namespace CodeIT\Cache;
 
-use Zend\ServiceManager\ServiceLocatorInterface; 
-use Zend\ServiceManager\ServiceLocatorAwareTrait;
-
 class Redis {
-
-	use ServiceLocatorAwareTrait;
 
 	/**
 	 * @var CodeIT\Cache\RedisWrapper
@@ -14,9 +9,23 @@ class Redis {
 	protected $redis;
 	protected $namespace;
 	protected $connected = false;
-	protected $serviceLocator;
 	protected $config = [];
 	const MAX_TRIES = 10;
+
+	/**
+	 * construct redis cache objecy
+	 * 
+	 * @param [] $config
+	 * @param \CodeIT\Cache\RedisWrapper $redis
+	 */
+	public function __construct($config, $redis) {
+		$this->config = $config;
+		$this->redis = $redis;
+
+		if($this->config['enabled']) {
+			$this->connect();
+		}
+	}
 
 	/**
 	 * Connects to redis daemon
@@ -24,7 +33,6 @@ class Redis {
 	 */
 	protected function connect() {
 		if (!$this->redis) {
-			$this->redis = $this->getServiceLocator()->get('redis');
 			$this->redis->connect();
 
 			if (!empty($this->config['namespace'])) {
@@ -130,22 +138,6 @@ class Redis {
 			$mask = sprintf('%s*', $name);
 			$this->redis->evaluate("return redis.call('del', unpack(redis.call('keys', ARGV[1])))", [$mask]);
 		}
-	}
-
-	/**
-	 * Set serviceManager instance
-	 *
-	 * @param  ServiceLocatorInterface $serviceLocator
-	 * @return void
-	 */
-	public function setServiceLocator(ServiceLocatorInterface $serviceLocator) {
-		$this->serviceLocator = $serviceLocator;
-
-		$this->config = $serviceLocator->get('Application\Config')['cache'];
-		if($this->config['enabled']) {
-			$this->connect();
-		}
-
 	}
 
 }

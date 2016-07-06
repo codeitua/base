@@ -71,7 +71,7 @@ class WrappedElement extends AbstractHelper {
 			default: $elementHTML = (empty($label) ? '' : "<div class='label'>$label:</div>") . "<div class='el'>$input</div>";
 		}
 
-		return "<div class='$type $name " . $view->escapeHTML($class) . " "  . ($errors ? "highlited" : "") . "'".(!empty($ngIf)?' ng-if="'.$ngIf.'"':'').">
+		return "<div class='$type $name " . $view->escapeHtml($class) . " "  . ($errors ? "highlited" : "") . "'".(!empty($ngIf)?' ng-if="'.$ngIf.'"':'').">
 				$elementHTML
 				$errors
 			</div>";
