@@ -13,8 +13,5 @@
         "psr-4": { 
             "CodeIT\\": "src/" 
         }
-    },
-    "require": {
-        "zendframework/zendframework": "2.5.*"
     }
 }
