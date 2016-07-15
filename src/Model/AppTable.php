@@ -525,7 +525,7 @@ abstract class AppTable extends TableGateway {
 		$row = $this->select(array(static::ID_COLUMN => $id))
 			->current();
 		if(!$row) {
-			throw new \Exception(ucfirst($this->table).' '.$id.' not found');
+			throw new Exception\ItemNotFoundException(ucfirst($this->table).' '.$id.' not found');
 		}
 
 		if ($publicOnly) {
