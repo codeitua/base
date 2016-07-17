@@ -2,10 +2,20 @@
 namespace CodeIT\Controller;
 
 use Zend\Mvc\Controller\AbstractActionController;
+use Zend\Console\Adapter\AbstractAdapter as ConsoleAbstractAdapter;
 use Zend\Console\Request as ConsoleRequest;
 use Zend\Console\ColorInterface as Color;
 
 class CoreController extends AbstractActionController {
+
+	/**
+	 * @var ConsoleAbstractAdapter
+	 */
+	protected $console;
+
+	public function __construct(ConsoleAbstractAdapter $console) {
+		$this->console = $console;
+	}
 
 	/**
 	 * Method creates new user in the database.
@@ -18,7 +28,6 @@ class CoreController extends AbstractActionController {
 			throw new \RuntimeException('You can only use this action from a console!');
 		}
 
-		$console = $this->getServiceLocator()->get('console');
 		$userTable = new \Application\Model\UserTable();
 		$form = new \CodeIT\Form\CreateUserForm();
 
@@ -43,9 +52,9 @@ class CoreController extends AbstractActionController {
 		}
 
 		if (isset($error)) {
-			$console->write($error, Color::RED);
+			$this->console->write($error, Color::RED);
 		} else {
-			$console->write("Successful creation.\n", Color::GREEN);
+			$this->console->write("Successful creation.\n", Color::GREEN);
 		}
 	}
 }

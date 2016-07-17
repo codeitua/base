@@ -18,8 +18,10 @@ return [
 		],
 	],
 	'controllers' => [
-		'invokables' => [
-			'CodeIT\Controller\Core' => 'CodeIT\Controller\CoreController',
+		'factories' => [
+			'CodeIT\Controller\Core' => function(\Zend\ServiceManager\ServiceManager $serviceManager) {
+				return new Controller\CoreController($serviceManager->get('console'));
+			},
 		],
 	],
 	'view_helpers' => [
