@@ -1,6 +1,8 @@
 <?php
 namespace CodeIT;
 
+use Zend\Mvc\Controller\LazyControllerAbstractFactory;
+
 return [
 	'console' => [
 		'router' => [
@@ -22,6 +24,9 @@ return [
 			'CodeIT\Controller\Core' => function(\Zend\ServiceManager\ServiceManager $serviceManager) {
 				return new Controller\CoreController($serviceManager->get('console'));
 			},
+		],
+		'abstract_factories' => [
+			LazyControllerAbstractFactory::class,
 		],
 	],
 	'view_helpers' => [

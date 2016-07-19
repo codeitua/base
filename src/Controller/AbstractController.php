@@ -6,10 +6,13 @@ use CodeIT\ACL\Authentication;
 use CodeIT\Utils\Registry;
 use Zend\Mvc\Controller\AbstractActionController;
 use Zend\EventManager\EventManagerInterface;
+use Zend\ServiceManager\ServiceManager;
 use Zend\View\Model\ViewModel;
 
 abstract class AbstractController extends AbstractActionController {
+
 	protected $userId;
+
 	public $lang = 1;
 	public $breadcrumbs;
 	public $error = '';
@@ -22,8 +25,6 @@ abstract class AbstractController extends AbstractActionController {
 	 */
 	public $returnForbidden = false;
 
-	protected $forceAuth;
-
 	/**
 	 * User class
 	 *
@@ -31,14 +32,20 @@ abstract class AbstractController extends AbstractActionController {
 	 */
 	protected $user;
 
+	protected $serviceLocator;
+	protected $jsonFormat = JSON_UNESCAPED_UNICODE;
+
 	/**
 	 * Construct default controller, create lang table
 	 * 
 	 * @param mixed $forceAuth
 	 * @return AppController
 	 */
-	public function __construct($forceAuth = false) {
-		$this->forceAuth = $forceAuth;
+	public function __construct(ServiceManager $serviceLocator) {
+		$this->serviceLocator = $serviceLocator;
+		if (defined('DEBUG') && DEBUG) {
+			$this->jsonFormat |= JSON_PRETTY_PRINT;
+		}
 	}
 
 	public function ready() {
@@ -47,7 +54,7 @@ abstract class AbstractController extends AbstractActionController {
 		}
 		catch(\Exception $e) {
 			$user = new User();
-			$user->auth($this->forceAuth);
+			$user->auth();
 			Registry::set('User', $user);
 		}
 
@@ -173,7 +180,7 @@ abstract class AbstractController extends AbstractActionController {
 	}
 
 	protected function renderView($view) {
-		$viewRender = $this->getServiceLocator()->get('ViewRenderer');
+		$viewRender = $this->serviceLocator->get('ViewRenderer');
 		return $viewRender->render($view);
 	}
 
@@ -215,7 +222,6 @@ abstract class AbstractController extends AbstractActionController {
 	 * 
 	 */
 	public function sendJSONResponse($data = [], $view = false, $action = 'content', $status = 'success', $exit = false) {
-
 		$statusList = [
 			'success',
 			'error'
@@ -312,5 +318,9 @@ abstract class AbstractController extends AbstractActionController {
 		ob_end_flush(); 
 		flush();
 	}
-	
+
+	public function setServiceLocator(ServiceLocatorInterface $serviceLocator) {
+		$this->serviceLocator = $serviceLocator;
+	}
+
 }

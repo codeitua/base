@@ -1,6 +1,6 @@
 {
     "name": "codeit/base",
-    "version": "0.2.3",
+    "version": "0.2.4",
     "type": "Utils",
     "description": "CodeIT Carcass base files",
     "authors": [
@@ -27,5 +27,8 @@
         "zendframework/zend-session": "^2.7",
         "zendframework/zend-i18n": "^2.7",
         "zendframework/zend-mvc-console": "^1.1"
+    },
+    "suggest": {
+        "hybridauth/hybridauth": "Social networks login support"
     }
 }

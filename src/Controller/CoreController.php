@@ -33,7 +33,7 @@ class CoreController extends AbstractActionController {
 
 		$data = [
 			'email' => $request->getParam('email'),
-			'password' => $request->getParam('password'),
+			'password' => $userTable->passwordHash($request->getParam('password')),
 			'level' => !empty($request->getParam('level')) ? $request->getParam('level') : 'admin',
 		];
 
