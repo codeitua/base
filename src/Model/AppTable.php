@@ -204,7 +204,7 @@ abstract class AppTable extends TableGateway {
 	 */
 	public function startTransaction() {
 		if(!$this->transactionsCounter) {
-			$this->query('start transaction');
+			$this->adapter->getDriver()->getConnection()->beginTransaction();
 		}
 		$this->transactionsCounter++;
 	}
@@ -215,7 +215,7 @@ abstract class AppTable extends TableGateway {
 	public function commit() {
 		$this->transactionsCounter--;
 		if(!$this->transactionsCounter) {
-			$this->query('commit');
+			$this->adapter->getDriver()->getConnection()->commit();
 		}
 	}
 
@@ -225,7 +225,7 @@ abstract class AppTable extends TableGateway {
 	public function rollback() {
 		$this->transactionsCounter--;
 		if(!$this->transactionsCounter) {
-			$this->query('rollback');
+			$this->adapter->getDriver()->getConnection()->rollback();
 		}
 	}
 
