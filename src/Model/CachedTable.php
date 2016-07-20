@@ -272,7 +272,9 @@ class CachedTable extends AppTable {
 		}
 		
 		if(!is_null($total)) {
-			$total = $this->query('select count(*) cnt from '.$this->table)->current()->cnt;
+			$total = sizeof($res);
+			if ($resultCount <= $limit)
+				$total = $this->query('select count(*) cnt from '.$this->table)->current()->cnt;
 		}
 
 		return $res;
