@@ -28,6 +28,8 @@ class WrappedElement extends AbstractHelper {
 			$input = $helper($element);
 		} elseif ($element instanceof \Zend\Form\Element\Button && $type == 'submit') {
 			$input = $view->formButton($element, $element->getAttribute('label'));
+		} elseif ($element instanceof \Zend\Form\Element\MultiCheckbox) {
+			$input = $view->formMultiCheckbox($element, $element->getAttribute('label'));
 		} else {
 			$input = 'form' . ucfirst($type);
 			$input = $view->$input($element);
