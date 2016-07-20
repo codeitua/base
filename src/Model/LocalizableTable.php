@@ -43,12 +43,16 @@ abstract class LocalizableTable extends CachedTable {
 		$key = base64_encode($name).'.'.$this->lang;
 		$item = $this->cacheGet($key);
 		if(!$item) {
-			$rows = $this->find(array(
-				array('name', '=', $name),
-				), 1, 0);
+			$rows = $this->find([
+				['name', '=', $name],
+				], 1, 0);
 			$item = array_pop($rows);
-			if($item)
-				$this->cacheSet($key, $item);
+			if (!$item) {
+				throw new Exception\ItemNotFoundException(
+					sprintf(_('Item name "%s" not found'), $name), 2001);
+			}
+
+			$this->cacheSet($key, $item);
 		}
 
 		return $item;
