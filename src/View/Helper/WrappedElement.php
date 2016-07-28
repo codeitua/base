@@ -28,6 +28,8 @@ class WrappedElement extends AbstractHelper {
 			$input = $helper($element);
 		} elseif ($element instanceof \Zend\Form\Element\Button && $type == 'submit') {
 			$input = $view->formButton($element, $element->getAttribute('label'));
+		} elseif ($element instanceof \Zend\Form\Element\Radio) {
+			$input = $view->formRadio($element, $element->getAttribute('label'));
 		} elseif ($element instanceof \Zend\Form\Element\MultiCheckbox) {
 			$input = $view->formMultiCheckbox($element, $element->getAttribute('label'));
 		} else {
@@ -70,7 +72,7 @@ class WrappedElement extends AbstractHelper {
 				$elementHTML = "<div class='el'>$input</div>";
 				break;
 			//case 'html': $elementHTML = "<div>$input $label</div>"; break;
-			default: $elementHTML = (empty($label) ? '' : "<div class='label'>$label:</div>") . "<div class='el'>$input</div>";
+			default: $elementHTML = (empty($label) ? '' : "<div class='label'>$label</div>") . "<div class='el'>$input</div>";
 		}
 
 		return "<div class='$type $name " . $view->escapeHtml($class) . " "  . ($errors ? "highlited" : "") . "'".(!empty($ngIf)?' ng-if="'.$ngIf.'"':'').">
