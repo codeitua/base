@@ -11,8 +11,6 @@ use Zend\View\Model\ViewModel;
 
 abstract class AbstractController extends AbstractActionController {
 
-	protected $userId;
-
 	public $lang = 1;
 	public $breadcrumbs;
 	public $error = '';
@@ -59,7 +57,6 @@ abstract class AbstractController extends AbstractActionController {
 		}
 
 		$this->user = $user;
-		$this->userId = $user->getId();
 
 		return false; // go further, everything is ok
 	}
