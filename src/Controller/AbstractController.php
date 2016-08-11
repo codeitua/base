@@ -101,6 +101,9 @@ abstract class AbstractController extends AbstractActionController {
 			} 
 
 			if ($response !== false) {
+				if ($response instanceof \Zend\View\Model\ViewModel) {
+					return $response;
+				}
 				$e->stopPropagation(true);
 				$jsonRenderer = new \Zend\View\Renderer\JsonRenderer();
 				$this->getResponse()->setContent($jsonRenderer->render($response));
