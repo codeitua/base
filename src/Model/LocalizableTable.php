@@ -37,6 +37,7 @@ abstract class LocalizableTable extends CachedTable {
 	 * Returns row from db with specified slug
 	 *
 	 * @param string $name
+	 * @throws Exception\ItemNotFoundException
 	 * @return \ArrayObject
 	 */
 	public function getByNameWithLang($name) {

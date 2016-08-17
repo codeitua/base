@@ -578,6 +578,10 @@ abstract class AppTable extends TableGateway {
 	 */
 	public function update($params, $where = null) {
 		$params = $this->removeUnnecessaryFields($params);
+		if (empty($params)) {
+			return 0;
+		}
+
 		$result = parent::update($params, $where);
 		return $result;
 	}
