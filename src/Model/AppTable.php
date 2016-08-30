@@ -96,7 +96,7 @@ abstract class AppTable extends TableGateway {
 	 * Returns Select instance
 	 *
 	 * @param null|string $table table name
-	 * @return Select
+	 * @return \Zend\Db\Sql\Select
 	 */
 	protected function getSelect($table = null) {
 		if(!$table) {

@@ -43,6 +43,7 @@ abstract class LocalizableTable extends CachedTable {
 	public function getByNameWithLang($name) {
 		$key = base64_encode($name).'.'.$this->lang;
 		$item = $this->cacheGet($key);
+		//\Zend\Debug\Debug::dump($item); die;
 		if(!$item) {
 			$rows = $this->find([
 				['name', '=', $name],
@@ -225,6 +226,7 @@ abstract class LocalizableTable extends CachedTable {
 				$fields []= $key;
 			}
 			$this->query('replace into `'.$this->locTable.'` ('.implode(', ', $fields).') values ('.implode(', ', $tValues).')', $data);
+			$this->cacheDelete(base64_encode($this->name) . '.' . $lang);
 		}
 
 		$this->cacheDelete($this->id);

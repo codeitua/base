@@ -32,15 +32,12 @@ class Redis {
 	 *
 	 */
 	protected function connect() {
-		if (!$this->redis) {
-			$this->redis->connect();
+		$this->redis->connect();
 
-			if (!empty($this->config['namespace'])) {
-				$this->redis->setOption(\Redis::OPT_PREFIX, $this->config['namespace']);
-			}
+		if (!empty($this->config['namespace'])) {
+			$this->redis->setOption(\Redis::OPT_PREFIX, $this->config['namespace']);
 		}
 
-		$this->redis->connect(true);
 		$this->connected = true;
 	}
 
