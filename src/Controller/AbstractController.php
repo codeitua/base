@@ -33,6 +33,15 @@ abstract class AbstractController extends AbstractActionController {
 	protected $serviceLocator;
 	protected $jsonFormat = JSON_UNESCAPED_UNICODE;
 
+	const JSON_STATUS_SUCCESS = 'success';
+	const JSON_STATUS_ERROR = 'error';
+	const JSON_ACTION_NONE = 'none';
+	const JSON_ACTION_REDIRECT = 'redirect';
+	const JSON_ACTION_LOGIN = 'login';
+	const JSON_ACTION_ALERT = 'alert';
+	const JSON_ACTION_CONTENT = 'content';
+	const JSON_ACTION_REPLACE_CONTENT = 'replaceContent'; 
+
 	/**
 	 * Construct default controller, create lang table
 	 * 
