@@ -22,6 +22,7 @@ class AppViewHelper extends AbstractHelper {
 		$this->view->action = empty($mA[1]) ? '' : $mA[1];
 		$this->view->namespace = $namespace;
 		$this->view->current_lang = $lang;
+		$this->view->id = $this->route->getParam('id', null);
 	}
 
 }
