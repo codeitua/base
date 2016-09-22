@@ -78,11 +78,8 @@ abstract class AbstractController extends AbstractActionController {
 	 * @param bool $isAdmin;
 	 */
 	protected function setBreadcrumbs($data = array(), $isAdmin = false){	 
-		$this->breadcrumbs = array(URL => SITE_NAME);
-		$baseUrl = URL.($isAdmin ? 'admin/' : '');
-
-		if($isAdmin)
-			$this->breadcrumbs[$baseUrl] = _('Administration Panel');
+		$this->breadcrumbs = [];
+		$baseUrl = URL . ($isAdmin ? 'admin/' : '');
 
 		foreach($data as $url => $name)
 			$this->breadcrumbs[$baseUrl.$url] = $name;
