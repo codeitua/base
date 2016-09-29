@@ -34,7 +34,9 @@ class Redis {
 	protected function connect() {
 		$this->redis->connect();
 
-		if (!empty($this->config['namespace'])) {
+		if (empty($this->config['namespace'])) {
+			$this->config['namespace'] = ''; // create key to be sure it won't break deletion by mask
+		} else {
 			$this->redis->setOption(\Redis::OPT_PREFIX, $this->config['namespace']);
 		}
 
@@ -133,7 +135,7 @@ class Redis {
 	public function deleteByMask($name) {
 		if($this->connected) {
 			$mask = sprintf('%s*', $name);
-			$this->redis->evaluate("return redis.call('del', unpack(redis.call('keys', ARGV[1])))", [$mask]);
+			$this->redis->evaluate("return redis.call('del', unpack(redis.call('keys', ARGV[1])))", [$this->config['namespace'] . $mask]);
 		}
 	}
 
