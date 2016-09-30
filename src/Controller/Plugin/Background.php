@@ -12,7 +12,7 @@ use Zend\View\Model\ViewModel;
  * Add as controller plugin into module config:
  * 'controller_plugins' => [
  *     'invokables' => [
- *         'background' => 'Application\Lib\Controller\Plugin\Background',
+ *         'background' => 'CodeIT\Controller\Plugin\Background',
  *     ],
  * ],
  *
