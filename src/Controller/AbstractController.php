@@ -303,30 +303,14 @@ abstract class AbstractController extends AbstractActionController {
 		return $this->sendJSONResponse([$url], false, 'redirect', 'success');
 	}
 
-	/**
-	 * return standard json responce (use it for all ajax actions) and try to disconnect client, then continue running
-	 * 
-	 * @param mixed $data - any data for js processor
-	 * @param string $view - ViewModel object or string to be placed on frontend
-	 * @param string $action - (values: none, redirect, alert, content, error)
-	 * @param string $status - (values: succes, error)
-	 * @param boolean $exit - echo data and die
-	 */
-	protected function sendJSONResponseDisconnect($data = [], $view = false, $action = 'content', $status = 'success') {
-		session_write_close();
-		ignore_user_abort(true);
-		set_time_limit(0);
-		ob_end_clean(); 
-		ob_start();
-		echo $this->renderView($this->sendJSONResponse($data, $view, $action, $status));
-		$size = ob_get_length();
-		header("Content-Length: $size");
-		ob_end_flush(); 
-		flush();
-	}
-
 	public function setServiceLocator(ServiceLocatorInterface $serviceLocator) {
 		$this->serviceLocator = $serviceLocator;
 	}
 
+	/**
+	 * @return \Zend\ServiceManager\ServiceManager
+	 */
+	public function getServiceLocator() {
+		return $this->serviceLocator;
+	}
 }

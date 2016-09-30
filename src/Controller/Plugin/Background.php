@@ -64,7 +64,7 @@ class Background extends AbstractPlugin
 	 * @param callable $callback
 	 * @param array $params
 	 */
-	public function sendDisconnectRedirect($redirectUrl, callable $callback, array $params = []) {
+	public function sendRedirect($redirectUrl, callable $callback, array $params = []) {
 		$this->before();
 
 		header("Location: $redirectUrl", true);
@@ -81,7 +81,7 @@ class Background extends AbstractPlugin
 	 * @param callable $callback
 	 * @param array $params
 	 */
-	public function sendDisconnect(ViewModel $view, callable $callback, array $params = []) {
+	public function send(ViewModel $view, callable $callback, array $params = []) {
 		$this->before();
 
 		ob_end_clean();
@@ -106,7 +106,7 @@ class Background extends AbstractPlugin
 	 * @param callable $callback
 	 * @param array $params
 	 */
-	public function sendJSONResponseDisconnect($data = [], $view = false, $action = 'content', $status = 'success', callable $callback, array $params = []) {
+	public function sendJSONResponse($data = [], $view = false, $action = 'content', $status = 'success', callable $callback, array $params = []) {
 		$this->before();
 
 		ob_end_clean();
