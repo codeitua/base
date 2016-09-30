@@ -1,6 +1,6 @@
 {
     "name": "codeit/base",
-    "version": "0.3.0",
+    "version": "0.3.3",
     "type": "Utils",
     "description": "CodeIT Carcass base files",
     "authors": [
