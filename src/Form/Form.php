@@ -57,4 +57,30 @@ abstract class Form extends \Zend\Form\Form {
 		return $this->updated;
 	}
 
+	/**
+	 * Add an element or fieldset
+	 *
+	 * If $elementOrFieldset is an array or Traversable, passes the argument on
+	 * to the composed factory to create the object before attaching it.
+	 *
+	 * $flags could contain metadata such as the alias under which to register
+	 * the element or fieldset, order in which to prioritize it, etc.
+	 *
+	 * @param  array|Traversable|ElementInterface $elementOrFieldset
+	 * @param  array                              $flags
+	 * @return self
+	 */
+	public function add($elementOrFieldset, array $flags = []) {
+		if (is_array($elementOrFieldset) && !empty($elementOrFieldset['type'])) {
+			if ($elementOrFieldset['type'] == 'csrf') {
+				if (empty($elementOrFieldset['options']) ||
+				empty($elementOrFieldset['options']['csrf_options']) ||
+				!isset($elementOrFieldset['options']['csrf_options']['timeout'])) {
+					$elementOrFieldset['options']['csrf_options']['timeout'] = null;
+				}
+			}
+		}
+
+		return parent::add($elementOrFieldset, $flags);
+	}
 }
