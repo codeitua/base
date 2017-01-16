@@ -33,7 +33,7 @@ class CoreController extends AbstractActionController {
 
 		$data = [
 			'email' => $request->getParam('email'),
-			'password' => $userTable->passwordHash($request->getParam('password')),
+			'password' => $request->getParam('password'),
 			'level' => !empty($request->getParam('level')) ? $request->getParam('level') : 'admin',
 		];
 
@@ -43,7 +43,7 @@ class CoreController extends AbstractActionController {
 			$data['created'] = time();
 			$data['updated'] = $data['created'];
 			try {
-				$userTable->insert($data);
+				$userTable->create($data);
 			} catch (\Exception $ex) {
 				$error = 'A server error has occured: '. $ex->getMessage() ."\n";
 			}
