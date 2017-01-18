@@ -1,6 +1,6 @@
 {
     "name": "codeit/base",
-    "version": "0.3.3",
+    "version": "0.3.5",
     "type": "Utils",
     "description": "CodeIT Carcass base files",
     "authors": [
@@ -29,6 +29,7 @@
         "zendframework/zend-mvc-console": "^1.1"
     },
     "suggest": {
-        "hybridauth/hybridauth": "Social networks login support"
+        "hybridauth/hybridauth": "Social networks login support",
+        "zendframework/zend-mvc-console": "Console routes support"
     }
 }
