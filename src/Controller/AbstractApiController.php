@@ -137,7 +137,7 @@ abstract class AbstractApiController extends AbstractRestfulController {
 		$contentType = $request->getHeader('Content-Type');
 
 		$content = explode('?', $request->getUriString());
-		if ($request->getMethod() == $request::METHOD_GET && !empty(!$content[1])) {
+		if ($request->getMethod() == $request::METHOD_GET && !empty($content[1])) {
 			$content = urldecode($content[1]);
 		} else {
 			$content = $request->getContent();
