@@ -58,7 +58,7 @@ class Authentication {
 				}
 			}
 			else {
-				return $controller->forbiddenAction();
+				$controller->forbiddenAction();
 			}
 		}
 
