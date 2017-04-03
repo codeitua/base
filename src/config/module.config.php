@@ -33,8 +33,9 @@ return [
 		'factories' => [
 			'appviewalias' => function(\Zend\ServiceManager\ServiceManager $serviceManager) {
 				$application = $serviceManager->get('Application');
-				$route = $application->getMvcEvent()->getRouteMatch();
-				return new \CodeIT\View\Helper\AppViewHelper($route);
+                $route = $application->getMvcEvent()->getRouteMatch();
+				$request = $application->getMvcEvent()->getRequest();
+				return new \CodeIT\View\Helper\AppViewHelper($route, $request);
 			},
 		],
 		'invokables' => [
