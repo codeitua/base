@@ -70,6 +70,11 @@ abstract class AbstractApiController extends AbstractRestfulController {
 			'POST, GET, OPTIONS, PUT, DELETE, PATCH'
 		);
 
+		$this->getResponse()->getHeaders()->addHeaderLine( // allow cookies
+			'Access-Control-Allow-Credentials',
+			'true'
+		);
+
 		if (strtoupper($this->request->getMethod()) == 'OPTIONS') {
 			return true; // we should return http 200 with empty body
 		}
