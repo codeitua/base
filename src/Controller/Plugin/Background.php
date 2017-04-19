@@ -43,6 +43,7 @@ class Background extends AbstractPlugin
 		session_write_close();
 		ignore_user_abort(true);
 		set_time_limit(0);
+		header('Content-Encoding: none', true);
 	}
 
 	/**
@@ -69,7 +70,6 @@ class Background extends AbstractPlugin
 
 		header("Location: $redirectUrl", true);
 		header('Connection: close', true);
-		header('Content-Encoding: none\r\n');
 		header('Content-Length: 0', true);
 		ob_flush();
 

@@ -160,10 +160,10 @@ abstract class AbstractController extends AbstractActionController {
 		}
 
 		$view = new ViewModel(array(
-			'error' => $message,
+			'message' => $message,
 		));
 
-		$view->setTemplate('error/forbidden.phtml');
+		$view->setTemplate('error/forbidden');
 		return $view;
 	}
 
