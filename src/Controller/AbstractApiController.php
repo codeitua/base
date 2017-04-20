@@ -6,6 +6,7 @@ use CodeIT\Utils\Registry;
 use CodeIT\ACL\Authentication;
 use Zend\EventManager\EventManagerInterface;
 use Zend\Mvc\Controller\AbstractRestfulController;
+use Zend\ServiceManager\ServiceManager;
 use Zend\View\Model\ViewModel;
 use Zend\View\Model\JsonModel;
 
@@ -25,6 +26,16 @@ abstract class AbstractApiController extends AbstractRestfulController {
 	 */
 	protected $user;
 	
+	/**
+	 * Construct default controller, create lang table
+	 * 
+	 * @param mixed $forceAuth
+	 * @return AbstractApiController
+	 */
+	public function __construct(ServiceManager $serviceLocator) {
+		$this->serviceLocator = $serviceLocator;
+	}
+
     protected $acceptCriteria = [
 //        'Application\View\Model\XMLModel' => [
 //        	'application/xml',
@@ -37,7 +48,6 @@ abstract class AbstractApiController extends AbstractRestfulController {
 
     public function ready() {
 		$this->isAjax = true;
-		$this->layout('mobile/layout');
 		
 		$origin = $this->request->getHeader('Origin');
 		if ($origin) { // allow API usage from any hosts
@@ -58,6 +68,11 @@ abstract class AbstractApiController extends AbstractRestfulController {
 		$this->getResponse()->getHeaders()->addHeaderLine( // allow any methods
 			'Access-Control-Allow-Methods',
 			'POST, GET, OPTIONS, PUT, DELETE, PATCH'
+		);
+
+		$this->getResponse()->getHeaders()->addHeaderLine( // allow cookies
+			'Access-Control-Allow-Credentials',
+			'true'
 		);
 
 		if (strtoupper($this->request->getMethod()) == 'OPTIONS') {
@@ -125,12 +140,20 @@ abstract class AbstractApiController extends AbstractRestfulController {
 	protected function getRequestData() {
 		$request = $this->getRequest();
 		$contentType = $request->getHeader('Content-Type');
+
+		$content = explode('?', $request->getUriString());
+		if ($request->isGet() && !empty($content[1])) {
+			$content = urldecode($content[1]);
+		} else {
+			$content = $request->getContent();
+		}
+
 		if ($contentType && $contentType->getFieldValue() == 'application/json') {
-			return json_decode($request->getContent(), true);
+			return json_decode($content, true);
 		}
 
 		if ($request->isDelete()) {
-			parse_str($request->getContent(), $requestValues);
+			parse_str($content, $requestValues);
 			return $requestValues;
 		}
 
