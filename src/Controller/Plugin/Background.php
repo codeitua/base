@@ -18,22 +18,28 @@ use Zend\View\Model\ViewModel;
  *
  * Usage examples:
  * 1.
- * $this->background()->sendJSONResponseDisconnect([], false, 'content', 'success', function() use ($var) {
+ * $this->background()->sendJSONResponse([], false, 'content', 'success', function() use ($var) {
  *     // Do something
  *     // $this is the link to the controller instance
  * });
  *
  * 2.
- * $this->background()->sendJSONResponseDisconnect([], false, 'content', 'success', function() {
+ * $this->background()->sendJSONResponse([], false, 'content', 'success', function() {
  *     // Do something
  *     // $this is the link to the controller instance
  * });
  *
  * 3.
- * $this->background()->sendJSONResponseDisconnect([], false, 'content', 'success', [$model, 'method'], [$var]);
+ * $this->background()->sendJSONResponse([], false, 'content', 'success', function($param1, $param2) {
+ *     // Do something
+ *     // $this is the link to the controller instance
+ * }, [$var1, $var2]);
  *
  * 4.
- * $this->background()->sendJSONResponseDisconnect([], false, 'content', 'success', [$model, 'method']);
+ * $this->background()->sendJSONResponse([], false, 'content', 'success', [$model, 'method'], [$var]);
+ *
+ * 5.
+ * $this->background()->sendJSONResponse([], false, 'content', 'success', [$model, 'method']);
  *
  */
 class Background extends AbstractPlugin
