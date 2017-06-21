@@ -21,13 +21,16 @@ class AppViewHelper extends AbstractHelper
      */
     protected $request;
 
-    public function __construct(RouteMatch $route, Request $request) {
+    public function __construct(RouteMatch $route = null, Request $request = null) {
         $this->route = $route;
         $this->request = $request;
     }
 
     public function prepareControllerAction() {
-        if (!$this->route) return;
+        if (!$this->route) {
+            return;
+        }
+
         $controller = $this->route->getParam('controller', 'index');
         $action = $this->route->getParam('action', 'index');
         $lang = $this->route->getParam('lang', 'en');
@@ -50,6 +53,10 @@ class AppViewHelper extends AbstractHelper
      */
     public function getQuery($name = null, $default = null)
     {
-        return $this->request->getQuery($name, $default);
+        if ($this->request) {
+            return $this->request->getQuery($name, $default);
+        }
+
+        return new \ArrayObject([]);
     }
 }
