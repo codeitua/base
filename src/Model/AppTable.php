@@ -10,7 +10,7 @@ use Zend\Db\Sql\AbstractSql;
 use Zend\Db\Sql\Select;
 use Zend\Db\Sql\Expression;
 
-abstract class AppTable extends TableGateway {
+abstract class AppTable {
 
 	/**
 	 * item ID
@@ -66,6 +66,16 @@ abstract class AppTable extends TableGateway {
 	 */
 	private $transactionsCounter;
 
+	protected $tableGateway;
+	protected $adapter;
+
+	/**
+	 * table name
+	 * 
+	 * @var string
+	 */
+	protected $table;
+
 	/**
 	 * Creates table and sets id if neccessary
 	 * @param string $tableName
@@ -73,8 +83,9 @@ abstract class AppTable extends TableGateway {
 	 * @param mixed $databaseSchema
 	 * @param ResultSet $selectResultPrototype
 	 */
-	public function __construct($tableName, $id=null, $databaseSchema = null, ResultSet $selectResultPrototype = null) {
-		parent::__construct($tableName, $this->getAdapter(), $databaseSchema, $selectResultPrototype);
+	public function __construct($tableName, $id=null) {
+		$this->table = $tableName;
+		$this->tableGateway = new TableGateway($tableName, $this->getAdapter());
 
 		if ($id) {
 			$this->setId($id);
@@ -105,6 +116,25 @@ abstract class AppTable extends TableGateway {
 
 		return new Select($table);
 	}
+
+    /**
+     * Select
+     *
+     * @param Where|\Closure|string|array $where
+     * @return ResultSet
+     */
+	public function select($where = null) {
+		return $this->tableGateway->select($where);
+	}
+
+    /**
+     * @param Select $select
+     * @return ResultSet
+     * @throws Exception\RuntimeException
+     */
+    protected function executeSelect(Select $select) {
+		return $this->tableGateway->selectWith($select);
+    }
 
 	/**
 	 * Runs SQL query
@@ -172,7 +202,6 @@ abstract class AppTable extends TableGateway {
 		return $resultSet;
 	}
 
-
 	/**
 	 * Acquires lock (mutex)
 	 *
@@ -238,7 +267,7 @@ abstract class AppTable extends TableGateway {
 	 */
 	public function insert($set) {
 		$set = $this->removeUnnecessaryFields($set);
-		if(parent::insert($set)) {
+		if($this->tableGateway->insert($set)) {
 			return $this->lastInsertValue;
 		}
 		throw new \Exception('Insert to "'.$this->table.'" failed. Set was '.print_r($set, true));
@@ -582,7 +611,7 @@ abstract class AppTable extends TableGateway {
 			return 0;
 		}
 
-		$result = parent::update($params, $where);
+		$result = $this->tableGateway->update($params, $where);
 		return $result;
 	}
 
@@ -606,10 +635,10 @@ abstract class AppTable extends TableGateway {
 	 */
 	public function delete($where) {
 		if(is_numeric($where)) {
-			$result = parent::delete(array(static::ID_COLUMN => $where));
+			$result = $this->tableGateway->delete(array(static::ID_COLUMN => $where));
 		}
 		else {
-			$result = parent::delete($where);
+			$result = $this->tableGateway->delete($where);
 		}
 
 		return (bool)$result;
