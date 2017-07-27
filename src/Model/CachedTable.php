@@ -2,6 +2,7 @@
 namespace CodeIT\Model;
 
 use Application\Lib\Redis as RedisCache;
+use CodeIT\Model\Exception\ItemNotFoundException;
 use CodeIT\Utils\Registry;
 use Zend\Db\ResultSet\ResultSet;
 
@@ -141,7 +142,7 @@ class CachedTable extends AppTable {
 			} else {
 				try {
 					$result[$id] = $this->get($id, $publicOnly);
-				} catch(\Exception $e) {
+				} catch(ItemNotFoundException $e) {
 					$this->delete($id);
 				}
 			}
