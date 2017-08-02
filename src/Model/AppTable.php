@@ -716,6 +716,7 @@ abstract class AppTable {
 	 */
 	public function setFindJoin($join) {
 		$this->findJoin = $join;
+		return $this;
 	}
 
 	/**
@@ -727,4 +728,33 @@ abstract class AppTable {
 		return $this->findJoin;
 	}
 
+    public static function populateModel($model, $data)
+    {
+        foreach ($data as $field => $value) {
+            if (property_exists($model, $field)) {
+                $model->$field = $value;
+            }
+        }
+
+        return $model;
+    }
+
+    /**
+     * @param $params
+     * @param int $limit
+     * @param int $offset
+     * @param bool $orderBy
+     * @param null $total
+     * @return static[]
+     */
+    public function findObjects($params, $limit = 0, $offset = 0, $orderBy = false, &$total = null)
+    {
+        $data = $this->find($params, $limit, $offset, $orderBy, $total);
+        $result = [];
+        foreach ($data as $modelId => $modelData) {
+            $model = new static();
+            $result[$modelData['id']] = static::populateModel($model, $modelData);
+        }
+        return $result;
+    }
 }
