@@ -268,7 +268,7 @@ abstract class AppTable {
 	public function insert($set) {
 		$set = $this->removeUnnecessaryFields($set);
 		if($this->tableGateway->insert($set)) {
-			return $this->lastInsertValue;
+			return $this->tableGateway->getLastInsertValue();
 		}
 		throw new \Exception('Insert to "'.$this->table.'" failed. Set was '.print_r($set, true));
 	}
