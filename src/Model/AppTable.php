@@ -569,22 +569,25 @@ abstract class AppTable extends TableGateway {
 			$this->setId($this->{static::ID_COLUMN});
 	}
 
-	/**
-	 * Update
-	 *
-	 * @param  array $params
-	 * @param  string|array|closure $where
-	 * @return int affected rows
-	 */
-	public function update($params, $where = null) {
-		$params = $this->removeUnnecessaryFields($params);
-		if (empty($params)) {
-			return 0;
-		}
+    /**
+     * Update
+     *
+     * @param array                $params
+     * @param string|array|closure $where
+     * @param null|array           $joins
+     * @return int affected rows
+     */
+    public function update($params, $where = null, array $joins = null)
+    {
+        $params = $this->removeUnnecessaryFields($params);
+        if (empty($params)) {
+            return 0;
+        }
 
-		$result = parent::update($params, $where);
-		return $result;
-	}
+        $result = parent::update($params, $where);
+
+        return $result;
+    }
 
 	/**
 	 * Deletes record by id
