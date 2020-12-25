@@ -1,5 +1,7 @@
 <?php
+
 namespace CodeIT\Model\Exception;
 
-class ItemNotFoundException extends \RuntimeException {
+class ItemNotFoundException extends \RuntimeException
+{
 }

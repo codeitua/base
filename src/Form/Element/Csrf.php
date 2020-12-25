@@ -1,35 +1,39 @@
 <?php
+
 namespace CodeIT\Form\Element;
 
 use CodeIT\Validator\CsrfValidator;
-use Zend\Form\Element;
-use Zend\InputFilter\InputProviderInterface;
+use Laminas\Form\Element;
+use Laminas\InputFilter\InputProviderInterface;
 
-class Csrf extends Element implements InputProviderInterface {
+class Csrf extends Element implements InputProviderInterface
+{
 
-	protected $attributes = array(
-		'type' => 'hidden',
-	);
+    protected $attributes = array(
+        'type' => 'hidden',
+    );
 
-	public function getValue() {
-		return CsrfValidator::getCsrfToken();
-	}
+    public function getValue()
+    {
+        return CsrfValidator::getCsrfToken();
+    }
 
-	public function getInputSpecification() {
-		return [
-			'name' => $this->getName(),
-			'required' => true,
-			'filters' => [
-				['name' => 'Zend\Filter\StringTrim'],
-			],
-			'validators' => [
-				$this->getValidator(),
-			],
-		];
-	}
+    public function getInputSpecification()
+    {
+        return [
+            'name' => $this->getName(),
+            'required' => true,
+            'filters' => [
+                ['name' => 'Laminas\Filter\StringTrim'],
+            ],
+            'validators' => [
+                $this->getValidator(),
+            ],
+        ];
+    }
 
-	private function getValidator() {
-		return new CsrfValidator();
-	}
-
+    private function getValidator()
+    {
+        return new CsrfValidator();
+    }
 }

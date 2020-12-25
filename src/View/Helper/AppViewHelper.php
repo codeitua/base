@@ -1,9 +1,10 @@
 <?php
+
 namespace CodeIT\View\Helper;
 
-use Zend\Router\RouteMatch;
-use Zend\Http\Request;
-use Zend\View\Helper\AbstractHelper;
+use Laminas\Router\RouteMatch;
+use Laminas\Http\Request;
+use Laminas\View\Helper\AbstractHelper;
 
 class AppViewHelper extends AbstractHelper
 {
@@ -21,12 +22,14 @@ class AppViewHelper extends AbstractHelper
      */
     protected $request;
 
-    public function __construct(RouteMatch $route = null, Request $request = null) {
+    public function __construct(RouteMatch $route = null, Request $request = null)
+    {
         $this->route = $route;
         $this->request = $request;
     }
 
-    public function prepareControllerAction() {
+    public function prepareControllerAction()
+    {
         if (!$this->route) {
             return;
         }
@@ -49,7 +52,7 @@ class AppViewHelper extends AbstractHelper
      *
      * @param string|null           $name            Parameter name to retrieve, or null to get the whole container.
      * @param mixed|null            $default         Default value to use when the parameter is missing.
-     * @return \Zend\Stdlib\ParametersInterface|mixed
+     * @return \Laminas\Stdlib\ParametersInterface|mixed
      */
     public function getQuery($name = null, $default = null)
     {
