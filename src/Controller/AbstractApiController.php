@@ -204,10 +204,19 @@ abstract class AbstractApiController extends AbstractRestfulController
 
     /**
      * Send HTTP 403 "Forbidden" status code
+     *
+     * @param string $message Optional message text
+     * @param int    $code    Optional error code
+     *
+     * @return JsonModel JSON model populated with error details
      */
-    public function forbiddenAction()
+    public function forbiddenAction(string $message = null, int $code = 0)
     {
-        return $this->returnData(['message' => 'Action is forbidden for your role', 'code' => 0], 403);
+        if (is_null($message)) {
+            $message = 'Action is forbidden for your role';
+        }
+
+        return $this->returnData(['message' => $message, 'code' => $code], 403);
     }
 
     /**
