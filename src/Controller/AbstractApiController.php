@@ -49,6 +49,11 @@ abstract class AbstractApiController extends AbstractRestfulController
         ],
     ];
 
+    /**
+     * Ready to process requests controller method
+     *
+     * @return bool|JsonModel|void
+     */
     public function ready()
     {
         $this->isAjax = true;
