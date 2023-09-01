@@ -3,6 +3,9 @@
     "version": "1.0.3",
     "type": "Utils",
     "description": "CodeIT Carcass base files",
+    "license": [
+        "MIT"
+    ],
     "authors": [
         {
             "name": "CodeIt",
