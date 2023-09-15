@@ -28,7 +28,8 @@ abstract class AppTablePgSQL extends AppTable {
 		throw new \Exception('Insert to "'.$this->table.'" failed. Set was '.print_r($set, true));
 	}
 	
-	public function getLock($name, $timeout=10) {
+	public function getLock($name, $params = false, $timeout = 10)
+	{
 		$timeStart = time();
 		$key = crc32($name);
 		$result = false;
@@ -45,8 +46,9 @@ abstract class AppTablePgSQL extends AppTable {
 		return true;		
 	}
 	
-	public function releaseLock($name) {
-		$key = crc32($name);		
+	public function releaseLock($name, $params = false)
+	{
+		$key = crc32($name);
 		$this->query("select pg_advisory_unlock($key)");
 	}
 	
