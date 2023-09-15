@@ -7,7 +7,7 @@ use CodeIT\Model\Exception\ItemNotFoundException;
 use CodeIT\Utils\Registry;
 use Laminas\Db\ResultSet\ResultSet;
 
-trait CachedTable
+class CachedTable extends AppTable
 {
 
     /**
