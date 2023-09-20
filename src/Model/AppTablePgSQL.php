@@ -21,7 +21,7 @@ abstract class AppTablePgSQL extends AppTable {
 	 */
 	public function insert($set) {
 		$set = $this->removeUnnecessaryFields($set);
-		if(parent::insert($set)) {
+		if ($this->tableGateway->insert($set)) {
 			$lastInsertValue = $this->adapter->getDriver()->getLastGeneratedValue("public.\"{$this->table}_id_seq\"");
                         return $lastInsertValue;
 		}
