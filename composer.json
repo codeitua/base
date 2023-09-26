@@ -1,6 +1,6 @@
 {
     "name": "codeit/base",
-    "version": "1.0.3",
+    "version": "1.1.0",
     "type": "Utils",
     "description": "CodeIT Carcass base files",
     "license": [
@@ -23,13 +23,13 @@
         "laminas/laminas-db": "^2.8",
         "laminas/laminas-view": "^2.8",
         "laminas/laminas-permissions-acl": "^2.6",
-        "laminas/laminas-cache": "^2.8",
+        "laminas/laminas-cache": "^3.9",
         "laminas/laminas-form": "^2.9",
-        "laminas/laminas-math": "^3.0",
+        "laminas/laminas-math": "^3.6",
         "laminas/laminas-validator": "^2.8",
         "laminas/laminas-session": "^2.7",
-        "laminas/laminas-i18n": "^2.7",
-        "laminas/laminas-mvc-console": "^1.1"
+        "laminas/laminas-i18n": "^2.22",
+        "laminas/laminas-cli": "^1.8"
     },
     "suggest": {
         "hybridauth/hybridauth": "Social networks login support",
