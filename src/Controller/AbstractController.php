@@ -12,6 +12,7 @@ use Laminas\View\Model\ViewModel;
 
 abstract class AbstractController extends AbstractActionController
 {
+    use CoreControllerTrait;
 
     public $lang = 1;
     public $breadcrumbs;

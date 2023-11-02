@@ -13,6 +13,7 @@ use Laminas\View\Model\JsonModel;
 
 abstract class AbstractApiController extends AbstractRestfulController
 {
+    use CoreControllerTrait;
 
     /**
      * user device Id
@@ -144,30 +145,6 @@ abstract class AbstractApiController extends AbstractRestfulController
         }
 
         Registry::set('lang', $_SESSION['lang']);
-    }
-
-    protected function getRequestData()
-    {
-        $request = $this->getRequest();
-        $contentType = $request->getHeader('Content-Type');
-
-        $content = explode('?', $request->getUriString());
-        if ($request->isGet() && !empty($content[1])) {
-            $content = urldecode($content[1]);
-        } else {
-            $content = $request->getContent();
-        }
-
-        if ($contentType && $contentType->getFieldValue() == 'application/json') {
-            return json_decode($content, true);
-        }
-
-        if ($request->isDelete()) {
-            parse_str($content, $requestValues);
-            return $requestValues;
-        }
-
-        return array_merge_recursive($request->getPost()->toArray(), $request->getFiles()->toArray());
     }
 
     /**
