@@ -1,25 +1,20 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\Validator;
 
 use Laminas\Validator\AbstractValidator;
 use Laminas\Db\Sql\Expression;
-
 class ExistValidator extends AbstractValidator
 {
-
     /**
      * @var [] of \CodeIT\Model\AppTable
      */
     private $models;
     private $fields;
-
     const NOTEXIST = 'aexist';
-
-    protected $messageTemplates = array(
-        self::NOTEXIST => 'aexist',
-    );
-
+    protected $messageTemplates = [self::NOTEXIST => 'aexist'];
     /**
      * @param \CodeIT\Model\AppTable|[] $models
      * @param string|[] $fields
@@ -28,9 +23,7 @@ class ExistValidator extends AbstractValidator
     public function __construct($models, $fields, $message = 'Item is not found')
     {
         parent::__construct();
-        $this->messageTemplates = array(
-            self::NOTEXIST => $message,
-        );
+        $this->messageTemplates = [self::NOTEXIST => $message];
         $this->setMessage($message);
         if (!is_array($models)) {
             $models = [$models];
@@ -39,14 +32,13 @@ class ExistValidator extends AbstractValidator
             $fields = [$fields];
         }
         foreach ($models as $model) {
-            if (!is_subclass_of($model, '\CodeIT\Model\AppTable')) {
-                throw new \Exception('Bad model passed: \CodeIT\Model\AppTable expected');
+            if (!is_subclass_of($model, '\\CodeIT\\Model\\AppTable')) {
+                throw new \Exception('Bad model passed: \\CodeIT\\Model\\AppTable expected');
             }
         }
         $this->models = $models;
         $this->fields = $fields;
     }
-
     public function isValid($value)
     {
         foreach ($this->models as $model) {
@@ -56,7 +48,6 @@ class ExistValidator extends AbstractValidator
                 }
             }
         }
-        
         $this->error(self::NOTEXIST);
         return false;
     }

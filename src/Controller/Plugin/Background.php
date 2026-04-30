@@ -1,50 +1,44 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\Controller\Plugin;
 
 use Laminas\Mvc\Controller\Plugin\AbstractPlugin;
 use Laminas\View\Model\ViewModel;
-
 /**
- * Class Background
- * @package Application\Lib\Controller\Plugin
- *
- * Add as controller plugin into module config:
- * 'controller_plugins' => [
- *     'invokables' => [
- *         'background' => 'CodeIT\Controller\Plugin\Background',
- *     ],
- * ],
- *
- * Usage examples:
- * 1.
- * $this->background()->sendJSONResponse([], false, 'content', 'success', function() use ($var) {
- *     // Do something
- *     // $this is the link to the controller instance
- * });
- *
- * 2.
- * $this->background()->sendJSONResponse([], false, 'content', 'success', function() {
- *     // Do something
- *     // $this is the link to the controller instance
- * });
- *
- * 3.
- * $this->background()->sendJSONResponse([], false, 'content', 'success', function($param1, $param2) {
- *     // Do something
- *     // $this is the link to the controller instance
- * }, [$var1, $var2]);
- *
- * 4.
- * $this->background()->sendJSONResponse([], false, 'content', 'success', [$model, 'method'], [$var]);
- *
- * 5.
- * $this->background()->sendJSONResponse([], false, 'content', 'success', [$model, 'method']);
- *
- */
+* Class Background
+* @package Application\Lib\Controller\Plugin
+*
+* Add as controller plugin into module config:
+* 'controller_plugins' => [
+    * 'invokables' => [
+        * 'background' => 'CodeIT\Controller\Plugin\Background',
+        * ],
+    * ],
+*
+* Usage examples:
+* 1 .
+* $this->background()->sendJSONResponseDisconnect([], false, 'content', 'success', function() use ($var) {
+    * // Do something
+    * // $this is the link to the controller instance
+    * });
+*
+* 2 .
+* $this->background()->sendJSONResponseDisconnect([], false, 'content', 'success', function() {
+    * // Do something
+    * // $this is the link to the controller instance
+    * });
+*
+* 3 .
+* $this->background()->sendJSONResponseDisconnect([], false, 'content', 'success', [$model, 'method'], [$var]);
+*
+* 4 .
+* $this->background()->sendJSONResponseDisconnect([], false, 'content', 'success', [$model, 'method']);
+*
+*/
 class Background extends AbstractPlugin
 {
-
     protected function before()
     {
         session_write_close();
@@ -52,7 +46,6 @@ class Background extends AbstractPlugin
         set_time_limit(0);
         header('Content-Encoding: none', true);
     }
-
     /**
      * @param callable $callback
      * @param array $params
@@ -63,11 +56,9 @@ class Background extends AbstractPlugin
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
         }
-
         call_user_func_array($callback, $params);
         exit;
     }
-
     /**
      * @param string $redirectUrl
      * @param callable $callback
@@ -76,15 +67,12 @@ class Background extends AbstractPlugin
     public function sendRedirect($redirectUrl, callable $callback, array $params = [])
     {
         $this->before();
-
-        header("Location: $redirectUrl", true);
+        header("Location: {$redirectUrl}", true);
         header('Connection: close', true);
         header('Content-Length: 0', true);
         ob_flush();
-
         $this->after($callback, $params);
     }
-
     /**
      * @param ViewModel $view
      * @param callable $callback
@@ -93,19 +81,16 @@ class Background extends AbstractPlugin
     public function send(ViewModel $view, callable $callback, array $params = [])
     {
         $this->before();
-
         ob_end_clean();
         ob_start();
-        $renderer = $this->getController()->getServiceLocator()->get('Laminas\View\Renderer\RendererInterface');
+        $renderer = $this->getController()->getServiceLocator()->get('Laminas\\View\\Renderer\\RendererInterface');
         $this->getController()->layout()->setVariable('content', $renderer->render($view));
         echo $renderer->render($this->getController()->layout());
         $size = ob_get_length();
-        header("Content-Length: $size");
+        header("Content-Length: {$size}");
         ob_end_flush();
-
         $this->after($callback, $params);
     }
-
     /**
      * Returns standard json response (use it for all ajax actions) and try to disconnect client, then continue running
      *
@@ -119,17 +104,12 @@ class Background extends AbstractPlugin
     public function sendJSONResponse($data = [], $view = false, $action = 'content', $status = 'success', callable $callback, array $params = [])
     {
         $this->before();
-
         ob_end_clean();
         ob_start();
-        echo $this->getController()
-            ->getServiceLocator()
-            ->get('ViewRenderer')
-            ->render($this->getController()->sendJSONResponse($data, $view, $action, $status));
+        echo $this->getController()->getServiceLocator()->get('ViewRenderer')->render($this->getController()->sendJSONResponse($data, $view, $action, $status));
         $size = ob_get_length();
-        header("Content-Length: $size");
+        header("Content-Length: {$size}");
         ob_end_flush();
-
         $this->after($callback, $params);
     }
 }

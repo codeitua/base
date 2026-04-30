@@ -1,36 +1,35 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\ACL;
 
 use Application\Lib\User;
 use CodeIT\Utils\Registry;
-use User\Controller\Plugin\UserAuthentication as AuthPlugin;
-use Laminas\EventManager\StaticEventManager;
 use Laminas\Mvc\Controller\AbstractController;
-use Laminas\Mvc\MvcEvent;
-
+use User\Controller\Plugin\UserAuthentication as AuthPlugin;
 /**
- * Authentication Event Handler Class
- *
- * This Event Handles Authentication
- */
+* Authentication Event Handler Class
+*
+* This Event Handles Authentication
+*/
 class Authentication
 {
-
     /**
-     * @var \Laminas\Cache\Pattern\ObjectCache
+     * @var \Application\Lib\Acl|object|null
      */
     protected $cachedAcl = null;
-
+    protected $_userAuth = null;
+    protected $_aclClass = null;
     /**
      * preDispatch Event Handler
      *
      * @param array $params
      * @param AbstractController $controller
      * @param bool $returnForbidden
-     * @returns string|bool false if no respose given, run further,
-     *          true if no response, abort execution
-     *          string in case we need to push it to client
+     * @returns string|bool false if no response given, run further,
+     * true if no response, abort execution
+     * string in case we need to push it to client
      * @throws \Exception
      */
     public function preDispatch($params, AbstractController $controller, $ajax = false, $returnForbidden = false)
@@ -39,34 +38,24 @@ class Authentication
          * @var User
          */
         $user = Registry::get('User');
-
         $acl = $this->getAclClass();
         $role = $user->getRole();
-        if (!$acl->call('hasResource', array($params['controller']))) {
+        if (!$acl->call('hasResource', [$params['controller']])) {
             throw new \Exception('Resource ' . $params['controller'] . ' not defined');
         }
-
-        $action = isset($params['action']) ? $params['action'] : $params['method'];
-        if (!$acl->call('isAllowed', array($role, $params['controller'], $action))) {
+        if (!$acl->call('isAllowed', [$role, $params['controller'], isset($params['action']) ? $params['action'] : $params['method']])) {
             if (in_array($role, ['guest']) && !$returnForbidden) {
-                if (is_a($controller, 'Code\Lib\ApiController')) {
+                if (is_a($controller, \CodeIT\Controller\AbstractApiController::class) || method_exists($controller, 'returnAuthenticationRequired')) {
                     return $controller->returnAuthenticationRequired();
-                } else {
-                    $controller->getResponse()->getHeaders()->addHeaderLine(
-                        'Location',
-                        URL . 'auth?r=' . urlencode($_SERVER['REQUEST_URI'])
-                    );
-                    $controller->getResponse()->setStatusCode(302);
-                    return true; // no content, abort execution, redirect
                 }
-            } else {
-                $controller->forbiddenAction();
+                $controller->getResponse()->getHeaders()->addHeaderLine('Location', URL . 'auth?r=' . urlencode($_SERVER['REQUEST_URI']));
+                $controller->getResponse()->setStatusCode(302);
+                return true;
             }
+            $controller->forbiddenAction();
         }
-
-        return false; // no re
+        return false;
     }
-
     /**
      * Sets Authentication Plugin
      *
@@ -76,10 +65,8 @@ class Authentication
     public function setUserAuthenticationPlugin(AuthPlugin $userAuthenticationPlugin)
     {
         $this->_userAuth = $userAuthenticationPlugin;
-
         return $this;
     }
-
     /**
      * Gets Authentication Plugin
      *
@@ -90,44 +77,33 @@ class Authentication
         if ($this->_userAuth === null) {
             $this->_userAuth = new AuthPlugin();
         }
-
         return $this->_userAuth;
     }
-
     /**
      * Sets ACL Class
      *
-     * @param \User\Acl\Acl $aclClass
+     * @param object $aclClass
      * @return Authentication
      */
-    public function setAclClass(AclClass $aclClass)
+    public function setAclClass($aclClass)
     {
         $this->_aclClass = $aclClass;
-
+        $this->cachedAcl = null;
         return $this;
     }
-
     /**
      * Gets ACL Class
      *
-     * @return \Application\Lib\Acl
+     * @return \Application\Lib\Acl|object
      */
     public function getAclClass()
     {
-        if ($this->cachedAcl === null) {
-            $cachedAcl = \Laminas\Cache\PatternFactory::factory('object', array(
-                'object'   => new \Application\Lib\Acl(),
-                'storage' => 'redis',
-                'object_key' => '.objectCache.\CodeIT\ACL',
-                'cache_by_default' => false,
-
-                // the output don't need to be catched and cached
-                'cache_output' => false,
-            ));
-
-            $this->cachedAcl = $cachedAcl;
+        if ($this->_aclClass !== null) {
+            return $this->_aclClass;
         }
-
+        if ($this->cachedAcl === null) {
+            $this->cachedAcl = new \Application\Lib\Acl();
+        }
         return $this->cachedAcl;
     }
 }

@@ -1,20 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\View\Helper;
 
-use Application\Model\UserTable;
 use CodeIT\Utils\Registry;
 use Laminas\View\Helper\AbstractHelper;
-
 class User extends AbstractHelper
 {
-
     public function __invoke()
     {
         try {
             $user = Registry::get('User');
         } catch (\Exception $e) {
-            $user = new \Application\Lib\User();
+            $user = $this->createAnonymousUser();
             try {
                 $user->auth(false);
             } catch (\Exception $e) {
@@ -22,5 +21,9 @@ class User extends AbstractHelper
             Registry::set('User', $user);
         }
         return $user;
+    }
+    private function createAnonymousUser() : \Application\Lib\User
+    {
+        return new \Application\Lib\User();
     }
 }

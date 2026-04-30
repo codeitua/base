@@ -1,38 +1,53 @@
 {
     "name": "codeit/base",
-    "version": "1.0.3",
-    "type": "Utils",
-    "description": "CodeIT Carcass base files",
-    "license": [
-        "MIT"
-    ],
+    "type": "library",
+    "description": "CodeIT Laminas base utilities, cache, validators, forms, and MVC helpers.",
+    "license": "BSD-3-Clause",
     "authors": [
         {
-            "name": "CodeIt",
-            "homepage": "http://codeit.com.ua"
+            "name": "CodeIT",
+            "homepage": "https://codeit.us/"
         }
     ],
+    "require": {
+        "php": "^8.1",
+        "ext-json": "*",
+        "ext-mbstring": "*",
+        "laminas/laminas-db": "^2.21",
+        "laminas/laminas-eventmanager": "^3.13",
+        "laminas/laminas-filter": "^2.38",
+        "laminas/laminas-form": "^3.22",
+        "laminas/laminas-http": "^2.21",
+        "laminas/laminas-inputfilter": "^2.30",
+        "laminas/laminas-cli": "^1.15",
+        "laminas/laminas-mvc": "^3.8",
+        "laminas/laminas-router": "^3.14",
+        "laminas/laminas-servicemanager": "^3.22 || ^4.4",
+        "laminas/laminas-validator": "^2",
+        "laminas/laminas-view": "^2.37",
+        "psr/container": "^1.1 || ^2.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^10.5 || ^11.0 || ^12.0"
+    },
+    "suggest": {
+        "ext-redis": "Required when using CodeIT\\Cache\\RedisWrapper."
+    },
     "autoload": {
         "psr-4": {
             "CodeIT\\": "src/"
         }
     },
-    "require": {
-        "laminas/laminas-mvc": "^3.0",
-        "laminas/laminas-router": "^3.0",
-        "laminas/laminas-db": "^2.8",
-        "laminas/laminas-view": "^2.8",
-        "laminas/laminas-permissions-acl": "^2.6",
-        "laminas/laminas-cache": "^2.8",
-        "laminas/laminas-form": "^2.9",
-        "laminas/laminas-math": "^3.0",
-        "laminas/laminas-validator": "^2.8",
-        "laminas/laminas-session": "^2.7",
-        "laminas/laminas-i18n": "^2.7",
-        "laminas/laminas-mvc-console": "^1.1"
+    "autoload-dev": {
+        "psr-4": {
+            "CodeIT\\BaseTest\\": "tests/"
+        }
     },
-    "suggest": {
-        "hybridauth/hybridauth": "Social networks login support",
-        "laminas/laminas-mvc-console": "Console routes support"
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite unit"
+    },
+    "config": {
+        "sort-packages": true
     }
 }

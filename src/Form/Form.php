@@ -1,30 +1,27 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\Form;
 
 use Laminas\InputFilter\InputFilter;
 use Laminas\InputFilter\Factory as InputFactory;
-
 abstract class Form extends \Laminas\Form\Form
 {
-    
     protected $langs = [];
-    
     /**
      * last update timestamp
      *
      * @var int
      */
     protected $updated;
-
-    abstract protected function getInpFilter();
-
+    protected abstract function getInpFilter();
     /**
      * Set data to validate and/or populate elements
      *
-     * Typically, also passes data on to the composed input filter.
+     * Typically, also passes data on to the composed input filter .
      *
-     * @param  array|\ArrayAccess|Traversable $data
+     * @param array|\ArrayAccess|Traversable $data
      * @return Form|FormInterface
      * @throws Exception\InvalidArgumentException
      */
@@ -34,7 +31,6 @@ abstract class Form extends \Laminas\Form\Form
         $this->setInputFilter($this->getInpFilter());
         return $this;
     }
-    
     protected function setLangs()
     {
         $langTable = new \Application\Model\LangTable();
@@ -43,7 +39,6 @@ abstract class Form extends \Laminas\Form\Form
             $this->langs[] = $item['id'];
         }
     }
-    
     /**
      * set value for updated field
      *
@@ -53,7 +48,6 @@ abstract class Form extends \Laminas\Form\Form
     {
         $this->updated = $updated;
     }
-
     /**
      * returns updated value for form content
      *
@@ -62,34 +56,28 @@ abstract class Form extends \Laminas\Form\Form
     {
         return $this->updated;
     }
-
     /**
      * Add an element or fieldset
      *
      * If $elementOrFieldset is an array or Traversable, passes the argument on
-     * to the composed factory to create the object before attaching it.
+     * to the composed factory to create the object before attaching it .
      *
      * $flags could contain metadata such as the alias under which to register
-     * the element or fieldset, order in which to prioritize it, etc.
+     * the element or fieldset, order in which to prioritize it, etc .
      *
-     * @param  array|Traversable|ElementInterface $elementOrFieldset
-     * @param  array                              $flags
+     * @param array|Traversable|ElementInterface $elementOrFieldset
+     * @param array $flags
      * @return self
      */
     public function add($elementOrFieldset, array $flags = [])
     {
         if (is_array($elementOrFieldset) && !empty($elementOrFieldset['type'])) {
             if ($elementOrFieldset['type'] == 'csrf') {
-                if (
-                    empty($elementOrFieldset['options']) ||
-                    empty($elementOrFieldset['options']['csrf_options']) ||
-                    !isset($elementOrFieldset['options']['csrf_options']['timeout'])
-                ) {
+                if (empty($elementOrFieldset['options']) || empty($elementOrFieldset['options']['csrf_options']) || !isset($elementOrFieldset['options']['csrf_options']['timeout'])) {
                     $elementOrFieldset['options']['csrf_options']['timeout'] = null;
                 }
             }
         }
-
         return parent::add($elementOrFieldset, $flags);
     }
 }

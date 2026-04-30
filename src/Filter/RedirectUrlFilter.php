@@ -1,12 +1,12 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\Filter;
 
 use Laminas\Filter\UriNormalize;
-
 class RedirectUrlFilter extends UriNormalize
 {
-
     /**
      * Sets filter options and url scheme
      *
@@ -18,21 +18,18 @@ class RedirectUrlFilter extends UriNormalize
         $this->setEnforcedScheme($scheme);
         parent::__construct($options);
     }
-
     /**
      * Filter the URL by normalizing it and applying a default scheme if set. Set to '' if no consistance with URL const.
      *
-     * @param  string $value
+     * @param string $value
      * @return string
      */
     public function filter($value)
     {
         $uriFiltered = parent::filter($value);
-
         if (strpos($uriFiltered, URL) !== 0) {
             $uriFiltered = '';
         }
-
         return $uriFiltered;
     }
 }

@@ -1,18 +1,18 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\Cache;
 
 class Memcache
 {
     /**
-    * @var \Memcache
-    */
+     * @var \Memcache
+     */
     protected $memc;
     protected $namespace;
-    protected const MAX_TRIES = 10;
-
+    const MAX_TRIES = 10;
     protected $typeConnect = 'global';
-
     public function __construct($type = 'global')
     {
         $this->memc = new \Memcache();
@@ -21,12 +21,10 @@ class Memcache
             $this->connect();
         }
     }
-
-    public function __destruct()
+    function __destruct()
     {
         $this->disconnect();
     }
-
     /**
      * Connects to memcache daemon
      *
@@ -43,7 +41,6 @@ class Memcache
             }
         }
     }
-
     /**
     * Disconnects fro, memcache daemon
     *
@@ -57,7 +54,6 @@ class Memcache
             }
         }
     }
-
     /**
     * assigns a value to a specified param
     *
@@ -73,25 +69,22 @@ class Memcache
         if ($try > self::MAX_TRIES) {
             return false;
         }
-        $ret = $this->memc->set($key, ($value), $flag, $timeout);
+        $ret = $this->memc->set($key, $value, $flag, $timeout);
         if (!$ret) {
             if (MEMCACHE_DEBUG) {
                 Logger::write('Memcache::set(' . $key . '): FAILED!');
             }
             $this->disconnect();
             $this->connect();
-            $this->set($key, ($value), $flag, $timeout, $try + 1);
+            $this->set($key, $value, $flag, $timeout, $try + 1);
         }
-
         if (MEMCACHE_DEBUG) {
             if ($ret) {
                 Logger::write('Memcache::set(' . $key . '): value = ' . print_r($value, true));
             }
         }
-
         return $ret;
     }
-
     /**
     * get value
     *
@@ -109,9 +102,8 @@ class Memcache
                 Logger::write('Memcache::get(' . $key . '): cache HIT!');
             }
         }
-        return ($ret);
+        return $ret;
     }
-
     public function deleteCache($name)
     {
         return $this->memc->delete($this->namespace . '.' . $name);

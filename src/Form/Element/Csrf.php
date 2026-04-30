@@ -1,37 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\Form\Element;
 
 use CodeIT\Validator\CsrfValidator;
 use Laminas\Form\Element;
 use Laminas\InputFilter\InputProviderInterface;
-
 class Csrf extends Element implements InputProviderInterface
 {
-
-    protected $attributes = array(
-        'type' => 'hidden',
-    );
-
+    protected $attributes = ['type' => 'hidden'];
     public function getValue()
     {
         return CsrfValidator::getCsrfToken();
     }
-
     public function getInputSpecification()
     {
-        return [
-            'name' => $this->getName(),
-            'required' => true,
-            'filters' => [
-                ['name' => 'Laminas\Filter\StringTrim'],
-            ],
-            'validators' => [
-                $this->getValidator(),
-            ],
-        ];
+        return ['name' => $this->getName(), 'required' => true, 'filters' => [['name' => 'Laminas\\Filter\\StringTrim']], 'validators' => [$this->getValidator()]];
     }
-
     private function getValidator()
     {
         return new CsrfValidator();

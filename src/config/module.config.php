@@ -1,47 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT;
 
 use Laminas\Mvc\Controller\LazyControllerAbstractFactory;
-
-return [
-    'console' => [
-        'router' => [
-            'routes' => [
-                'usercreate' => [
-                    'options' => [
-                        'route'    => 'user create <email> <password> [<level>]',
-                        'defaults' => [
-                            'controller' => 'CodeIT\Controller\Core',
-                            'action'     => 'createUser'
-                        ],
-                    ],
-                ],
-            ],
-        ],
-    ],
-    'controllers' => [
-        'factories' => [
-            'CodeIT\Controller\Core' => function (\Laminas\ServiceManager\ServiceManager $serviceManager) {
-                return new Controller\CoreController($serviceManager->get('console'));
-            },
-        ],
-        'abstract_factories' => [
-            LazyControllerAbstractFactory::class,
-        ],
-    ],
-    'view_helpers' => [
-        'factories' => [
-            'appviewalias' => function (\Laminas\ServiceManager\ServiceManager $serviceManager) {
-                $application = $serviceManager->get('Application');
-                $route = $application->getMvcEvent()->getRouteMatch();
-                $request = $application->getMvcEvent()->getRequest();
-                return new \CodeIT\View\Helper\AppViewHelper($route, $request);
-            },
-        ],
-        'invokables' => [
-            'wrappedElement' => 'CodeIT\View\Helper\WrappedElement',
-            'wrappedForm' => 'CodeIT\View\Helper\WrappedForm',
-        ],
-    ],
-];
+use Psr\Container\ContainerInterface;
+return ['laminas-cli' => ['commands' => ['user: create' => Command\UserCreateCommand::class]], 'service_manager' => ['factories' => [Command\UserCreateCommand::class => static fn() => new Command\UserCreateCommand()]], 'controllers' => ['abstract_factories' => [LazyControllerAbstractFactory::class]], 'view_helpers' => ['factories' => ['appviewalias' => static function (ContainerInterface $container) {
+    $application = $container->get('Application');
+    $event = $application->getMvcEvent();
+    return new View\Helper\AppViewHelper($event->getRouteMatch(), $event->getRequest());
+}, View\Helper\WrappedElement::class => static fn() => new View\Helper\WrappedElement(), View\Helper\WrappedForm::class => static fn() => new View\Helper\WrappedForm()], 'aliases' => ['wrappedElement' => View\Helper\WrappedElement::class, 'wrappedForm' => View\Helper\WrappedForm::class]]];

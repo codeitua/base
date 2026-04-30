@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\Model;
 
 use CodeIT\Utils\Registry;
@@ -10,74 +12,54 @@ use Laminas\Db\Sql;
 use Laminas\Db\Sql\AbstractSql;
 use Laminas\Db\Sql\Select;
 use Laminas\Db\Sql\Expression;
-
-abstract class AppTable
+abstract class AppTable extends TableGateway
 {
-
     /**
      * item ID
      *
      * @var int
      */
     public $id;
-
     /**
      * List of fields from DB table
      *
      * @var array
      */
     protected $goodFields = [];
-
     /**
      * Private fields list that should be removed from passing to clients
      *
      * @var []
      */
     protected $privateFields = [];
-
     /**
      * Join clause for find() method, used for local tables
      *
      * @var string
      */
     protected $findJoin = '';
-
     /**
      * Group by condition for find() method
      *
      * @var string
      */
     protected $groupBy;
-    
     /**
      * Having condition for find() method
      *
      * @var string
      */
     protected $having;
-    
     /**
      * Table "ID" field name
      */
     const ID_COLUMN = 'id';
-    
     /**
      * opened transactions counter
      *
      * @var int
      */
     private $transactionsCounter;
-
-    protected $tableGateway;
-    protected $adapter;
-
-    /**
-     * table name
-     *
-     * @var string
-     */
-    protected $table;
-
     /**
      * Creates table and sets id if neccessary
      * @param string $tableName
@@ -85,16 +67,13 @@ abstract class AppTable
      * @param mixed $databaseSchema
      * @param ResultSet $selectResultPrototype
      */
-    public function __construct($tableName, $id = null)
+    public function __construct($tableName, $id = null, $databaseSchema = null, ResultSet $selectResultPrototype = null)
     {
-        $this->table = $tableName;
-        $this->tableGateway = new TableGateway($tableName, $this->getAdapter());
-
+        parent::__construct($tableName, $this->getAdapter(), $databaseSchema, $selectResultPrototype);
         if ($id) {
             $this->setId($id);
         }
     }
-
     /**
      * @return \BjyProfiler\Db\Adapter\ProfilingAdapter|Adapter
      */
@@ -103,10 +82,8 @@ abstract class AppTable
         if (!$this->adapter) {
             $this->adapter = Registry::get('sm')->get('dbAdapter');
         }
-
         return $this->adapter;
     }
-
     /**
      * Returns Select instance
      *
@@ -118,31 +95,8 @@ abstract class AppTable
         if (!$table) {
             $table = $this->table;
         }
-
         return new Select($table);
     }
-
-    /**
-     * Select
-     *
-     * @param Where|\Closure|string|array $where
-     * @return ResultSet
-     */
-    public function select($where = null)
-    {
-        return $this->tableGateway->select($where);
-    }
-
-    /**
-     * @param Select $select
-     * @return ResultSet
-     * @throws Exception\RuntimeException
-     */
-    protected function executeSelect(Select $select)
-    {
-        return $this->tableGateway->selectWith($select);
-    }
-
     /**
      * Runs SQL query
      *
@@ -151,12 +105,11 @@ abstract class AppTable
      * @return array|ResultSet
      * @throws \Exception
      */
-    protected function execute(AbstractSql $sql, $params = array())
+    protected function execute(AbstractSql $sql, $params = [])
     {
         try {
             $statement = $this->adapter->createStatement();
             $sql->prepareStatement($this->adapter, $statement);
-
             $resultSet = new ResultSet();
             $dataSource = $statement->execute($params);
             if ($sql instanceof \Laminas\Db\Sql\Insert) {
@@ -167,27 +120,25 @@ abstract class AppTable
             $resultSet->initialize($dataSource);
             return $resultSet;
         } catch (\Exception $e) {
-            if (DEBUG) {
+            if (defined('DEBUG') && DEBUG) {
                 $previousMessage = '';
                 if ($e->getPrevious()) {
                     $previousMessage = ': ' . $e->getPrevious()->getMessage();
                 }
-                throw new \Exception('SQL Error: ' . $e->getMessage() . $previousMessage . "<br>
-					SQL Query was:<br><br>\n\n" . $sql->getSqlString($this->adapter->platform));
-                //\Zend\Debug::dump($e);
+                throw new \Exception('SQL Error: ' . $e->getMessage() . $previousMessage . "<br>\r\n        SQL Query was: <br><br>\n\n" . $sql->getSqlString($this->adapter->platform));
+                //\Laminas\Debug::dump($e);
             }
         }
-        return array();
+        return [];
     }
-
     /**
-     * Makes and executes SQL query
-     *
-     * @param string $query
-     * @param mixed $params
-     * @return mixed
-     * @throws \Exception
-     */
+    * Makes and executes SQL query
+    *
+    * @param string $query
+    * @param mixed $params
+    * @return mixed
+    * @throws \Exception
+    */
     protected function query($query, $params = false)
     {
         if (!$params) {
@@ -196,49 +147,45 @@ abstract class AppTable
         try {
             $resultSet = $this->adapter->query($query, $params);
         } catch (\Exception $e) {
-            if (DEBUG) {
+            if (defined('DEBUG') && DEBUG) {
                 $previousMessage = '';
                 if ($e->getPrevious()) {
                     $previousMessage = ': ' . $e->getPrevious()->getMessage();
                 }
-                throw new \Exception('SQL Error: ' . $e->getMessage() . ': ' . $previousMessage . "<br>
-					SQL Query was:<br><br>\n\n" . $query . "<br>params: " . print_r($params, true));
+                throw new \Exception('SQL Error: ' . $e->getMessage() . ': ' . $previousMessage . "<br>\r\n        SQL Query was: <br><br>\n\n" . $query . "<br>params: " . print_r($params, true));
             }
         }
         return $resultSet;
     }
-
     /**
-     * Acquires lock (mutex)
-     *
-     * @param string $name
-     * @param bool|false $params
-     * @param int $timeout
-     * @throws \Exception
-     */
+    * Acquires lock (mutex)
+    *
+    * @param string $name
+    * @param bool|false $params
+    * @param int $timeout
+    * @throws \Exception
+    */
     public function getLock($name, $params = false, $timeout = 10)
     {
-        $resultSet = $this->query("select GET_LOCK(" . $this->quoteValue($name) . ", $timeout) as res", $params);
+        $resultSet = $this->query("select GET_LOCK(" . $this->quoteValue($name) . ", {$timeout}) as res", $params);
         $result = $resultSet->current()->res;
         if (!$result) {
             throw new Exception\CannotGetLockException('Could not obtain lock on ' . $name);
         }
     }
-
     /**
-     * Releases lock (mutex) obtained by getLock
-     *
-     * @param string $name
-     * @param array|bool|false $params
-     */
+    * Releases lock (mutex) obtained by getLock
+    *
+    * @param string $name
+    * @param array|bool|false $params
+    */
     public function releaseLock($name, $params = false)
     {
         $this->query("select RELEASE_LOCK(" . $this->quoteValue($name) . ")", $params);
     }
-
     /**
-     * Starts transaction
-     */
+    * Starts transaction
+    */
     public function startTransaction()
     {
         if (!$this->transactionsCounter) {
@@ -246,10 +193,9 @@ abstract class AppTable
         }
         $this->transactionsCounter++;
     }
-
     /**
-     * Commits transaction
-     */
+    * Commits transaction
+    */
     public function commit()
     {
         $this->transactionsCounter--;
@@ -257,10 +203,9 @@ abstract class AppTable
             $this->adapter->getDriver()->getConnection()->commit();
         }
     }
-
     /**
-     * Rollbacks transaction
-     */
+    * Rollbacks transaction
+    */
     public function rollback()
     {
         $this->transactionsCounter--;
@@ -268,34 +213,32 @@ abstract class AppTable
             $this->adapter->getDriver()->getConnection()->rollback();
         }
     }
-
     /**
-     * Inserts a record
-     *
-     * @param array$set
-     * @return int
-     * @throws \Exception
-     */
+    * Inserts a record
+    *
+    * @param array$set
+    * @return int
+    * @throws \Exception
+    */
     public function insert($set)
     {
         $set = $this->removeUnnecessaryFields($set);
-        if ($this->tableGateway->insert($set)) {
-            return $this->tableGateway->getLastInsertValue();
+        if (parent::insert($set)) {
+            return $this->lastInsertValue;
         }
         throw new \Exception('Insert to "' . $this->table . '" failed. Set was ' . print_r($set, true));
     }
-
     /**
-     * Searches for items, fetching them by ::get()
-     *
-     * @param array $params, e.g. ['id', '>=', '135']
-     * @param int $limit, set to 0 or false to no limit
-     * @param int $offset
-     * @param string|bool|false $orderBy
-     * @param int &$total will be set to total count found
-     * @param bool $publicOnly should we return full data or non-private fields only
-     * @return ResultSet|[]
-     */
+    * Searches for items, fetching them by::get()
+    *
+    * @param array $params, e.g. ['id', '>=', '135']
+    * @param int $limit, set to 0 or false to no limit
+    * @param int $offset
+    * @param string|bool|false $orderBy
+    * @param int &$total will be set to total count found
+    * @param bool $publicOnly should we return full data or non-private fields only
+    * @return ResultSet|[]
+    */
     public function find($params, $limit = 0, $offset = 0, $orderBy = false, &$total = null, $publicOnly = false)
     {
         $items = $this->findSimple($params, $limit, $offset, $orderBy, $total, ['*']);
@@ -308,86 +251,75 @@ abstract class AppTable
         } else {
             $result = $items;
         }
-
         return $result;
     }
-
     /**
-     * Searches for items and returns ResultSet
-     *
-     * @param array $params, e.g. arrat('id', '>=', '135')
-     * @param int $limit, set to 0 or false to no limit
-     * @param int $offset
-     * @param string|bool|false $orderBy
-     * @param int &$total will be set to total count found
-     * @param array $columns fileds which should be inclued in the result
-     * @return ResultSet
-     */
+    * Searches for items and returns ResultSet
+    *
+    * @param array $params, e.g. ['id', '>=', '135']
+    * @param int $limit, set to 0 or false to no limit
+    * @param int $offset
+    * @param string|bool|false $orderBy
+    * @param int &$total will be set to total count found
+    * @param array $columns fileds which should be inclued in the result
+    * @return ResultSet
+    */
     public function findSimple($params, $limit = 0, $offset = 0, $orderBy = false, &$total = null, $columns = ['id'])
     {
         $where = $this->buildWhere($params);
         if (!is_null($total)) {
             $total = $this->count($where);
         }
-
         return $this->query($this->buildSelectQuery($where, $limit, $offset, $orderBy, $columns));
     }
-
     /**
-     * Builds where condition string from the $params array
-     *
-     * @param array $params
-     * @return string
-     */
+    * Builds where condition string from the $params array
+    *
+    * @param array $params
+    * @return string
+    */
     protected function buildWhere($params)
     {
         if ($whereParams = $this->processWhereParams($params)) {
             return 'where ' . implode(' AND ', $whereParams);
         }
-
         return '';
     }
-    
     /**
-     * Builds the select query from arguments
-     *
-     * @param string $where
-     * @param integer $limit
-     * @param integer $offset
-     * @param string|bool|false $orderBy
-     * @param array $columns
-     * @return string
-     */
+    * Builds the select query from arguments
+    *
+    * @param string $where
+    * @param integer $limit
+    * @param integer $offset
+    * @param string|bool|false $orderBy
+    * @param array $columns
+    * @return string
+    */
     protected function buildSelectQuery($where, $limit = 0, $offset = 0, $orderBy = false, $columns = ['id'], $join = false)
     {
-        return 'select ' . $this->buildSelect($columns) . ' from `' . $this->table . '` ' . $this->getFindJoin() . ' ' .
-            $where .
-            ($join ? $join : '') .
-            ($this->getGroupBy() ? $this->getGroupBy() : '') .
-            ' ' . ($this->getHaving() ? $this->getHaving() : '') .
-            ($orderBy ? ' order by ' . $orderBy : '') .
-            ($limit ? ' limit ' . ((int)$offset) . ', ' . ((int)$limit) : '');
+        return 'select ' . $this->buildSelect($columns) . ' from `' . $this->table . '` ' . $this->getFindJoin() . ' ' . $where . ($join ? $join : '') . ($this->getGroupBy() ? $this->getGroupBy() : '') . ' ' . ($this->getHaving() ? $this->getHaving() : '') . ($orderBy ? ' order by ' . $orderBy : '') . ($limit ? ' limit ' . (int) $offset . ', ' . (int) $limit : '');
     }
-
     /**
-     * Builds a select condition using the $columns
-     *
-     * @param array $columns
-     * @return type
-     */
+    * Builds a select condition using the $columns
+    *
+    * @param array $columns
+    * @return type
+    */
     protected function buildSelect($columns)
     {
         $tColumns = [];
         foreach ($columns as $alias => $column) {
             $selectColumn = '';
-            if (is_object($column) && ($column instanceof Expression)) {
-                $expression = $column->getExpression();//
+            if (is_object($column) && $column instanceof Expression) {
+                $expression = $column->getExpression();
+                //
                 $selectColumn = $expression;
             } elseif (is_array($column)) {
-                $selectColumn = '`' . $column[0] . '`.' . $column[1] . ''; //to get columns from different tables when join
+                $selectColumn = '`' . $column[0] . '`.' . $column[1] . '';
+                //to get columns from different tables when join
             } else {
                 if ($column == '*') {
-                    $selectColumn = '`' . $this->table . '`.*';//to get all table columns
+                    $selectColumn = '`' . $this->table . '`.*';
                 } else {
                     $selectColumn = '`' . $this->table . '`.`' . $column . '`';
                 }
@@ -397,81 +329,86 @@ abstract class AppTable
             }
             $tColumns[] = $selectColumn;
         }
-
         return implode(', ', $tColumns);
     }
-
     /**
-     * process array of where paramethers and
-     * convert to array of paramethers as strings
-     * @param array $params
-     * @return array
-     */
+    * process array of where paramethers and
+    * convert to array of paramethers as strings
+    * @param array $params
+    * @return array
+    */
     protected function processWhereParams($params)
     {
         $platform = $this->getAdapter()->getPlatform();
-        $whereParams = array();
+        $whereParams = [];
         foreach ($params as $param) {
-            $whereParams [] = $this->prepareParam($param) ;
+            $whereParams[] = $this->prepareParam($param);
         }
         return $whereParams;
     }
-
     /**
-     * Processes condition array into string
-     *
-     * @param mixed $param
-     * @return string
-     * @throws \Exception
-     */
+    * Processes condition array into string
+    *
+    * @param mixed $param
+    * @return string
+    * @throws \Exception
+    */
     protected function prepareParam($param)
     {
         $platform = $this->getAdapter()->getPlatform();
         if ($param instanceof Expression) {
             $set = $param->getExpression();
-        } elseif (is_string($param)) {
-            $set = $param;
         } else {
-            if (is_object($param[0]) && ($param[0] instanceof Expression)) {
-                $expression = $param[0]->getExpression();
-                $param[0] = $expression;
-            } elseif (strpos($param[0], '.') === false) {
-                $param[0] = $platform->quoteIdentifierChain($param[0]);
+            if (is_string($param)) {
+                $set = $param;
             } else {
-                $param[0] = substr_replace($param[0], "`", strpos($param[0], '.') + 1, 0) . '`';
-            }
-            $set = $param[0] . ' ' . $param[1] . ' ';
-            if (strtolower($param[1]) == 'in') {
-                if (is_array($param[2])) {
-                    $set .= '(';
-                    $list = array();
-                    foreach ($param[2] as $par) {
-                        $list[] = $this->quoteValue($par);
-                    }
-                    $set .= implode(',', $list) . ')';
+                if (is_object($param[0]) && $param[0] instanceof Expression) {
+                    $expression = $param[0]->getExpression();
+                    $param[0] = $expression;
                 } else {
-                    $set .= '(\'' . $this->quoteValue($param[2]) . '\')';
+                    if (strpos($param[0], '.') === false) {
+                        $param[0] = $platform->quoteIdentifierChain($param[0]);
+                    } else {
+                        $param[0] = substr_replace($param[0], "`", strpos($param[0], '.') + 1, 0) . '`';
+                    }
                 }
-            } elseif (strtolower($param[1]) == 'like') {
-                $set .= $this->quoteValue($param[2]);
-                if (!empty($param[3])) { // add escape character
-                    $set .= ' ESCAPE "' . $param[3] . '"';
+                $set = $param[0] . ' ' . $param[1] . ' ';
+                if (strtolower($param[1]) == 'in') {
+                    if (is_array($param[2])) {
+                        $set .= '(';
+                        $list = [];
+                        foreach ($param[2] as $par) {
+                            $list[] = $this->quoteValue($par);
+                        }
+                        $set .= implode(', ', $list) . ')';
+                    } else {
+                        $set .= '(\'' . $this->quoteValue($param[2]) . '\')';
+                    }
+                } else {
+                    if (strtolower($param[1]) == 'like') {
+                        $set .= $this->quoteValue($param[2]);
+                        if (!empty($param[3])) {
+                            // add escape character
+                            $set .= ' ESCAPE "' . $param[3] . '"';
+                        }
+                    } else {
+                        if (isset($param[2])) {
+                            $set .= $this->quoteValue($param[2]);
+                        } else {
+                            $set .= 'NULL';
+                        }
+                    }
                 }
-            } elseif (isset($param[2])) {
-                $set .= $this->quoteValue($param[2]);
-            } else {
-                $set .= 'NULL';
             }
         }
         return $set;
     }
-
     /**
-     * Returns the row counts by the $params
-     *
-     * @param array|string $params
-     * @return mixed
-     */
+    * Returns the row counts by the $params
+    *
+    * @param array|string $params
+    * @return mixed
+    */
     public function count($params = '')
     {
         $where = '';
@@ -480,121 +417,106 @@ abstract class AppTable
         } elseif (is_string($params)) {
             $where = $params;
         }
-        
         return $this->query('select count(*) cnt from `' . $this->table . '` ' . $this->findJoin . ' ' . $where . ($this->getGroupBy() ? $this->getGroupBy() : '') . ' ' . ($this->getHaving() ? $this->getHaving() : ''))->current()->cnt;
     }
-
     /**
-     * Sets group by closer
-     * @param string $group
-     */
+    * Sets group by closer
+    * @param string $group
+    */
     public function setGroupBy($group)
     {
         $this->groupBy = $group;
     }
-
     /**
-     * Gets group by closer
-     *
-     * @return string
-     */
+    * Gets group by closer
+    *
+    * @return string
+    */
     public function getGroupBy()
     {
         return $this->groupBy;
     }
-
     /**
-     * Sets having closer
-     *
-     * @param string $having
-     */
+    * Sets having closer
+    *
+    * @param string $having
+    */
     public function setHaving($having)
     {
         $this->having = $having;
     }
-
     /**
-     * Gets having closer
-     *
-     * @return string $having
-     */
+    * Gets having closer
+    *
+    * @return string $having
+    */
     public function getHaving()
     {
         return $this->having;
     }
-
     /**
-     * Creates item, sets id.
-     *
-     * @param array $params
-     * @return id
-     */
+    * Creates item, sets id .
+    *
+    * @param array $params
+    * @return id
+    */
     public function create($params)
     {
         $id = $this->insert($params);
         $this->setId($id);
         return $id;
     }
-
     /**
-     * Returns current id
-     *
-     * @return $id int
-     */
+    * Returns current id
+    *
+    * @return $id int
+    */
     public function getId()
     {
         return $this->{static::ID_COLUMN};
     }
-
     /**
-     * Sets Id. Checks whether entry exists.
-     *
-     * @param int $id
-     * @returns item
-     */
+    * Sets Id. Checks whether entry exists.
+    *
+    * @param int $id
+    * @returns item
+    */
     public function setId($id)
     {
-        $this->{static::ID_COLUMN } = $id;
+        $this->{static::ID_COLUMN} = $id;
         $item = $this->get($id);
-
         foreach ($item as $field => $value) {
             if (property_exists($this, $field)) {
-                $this->$field = $value;
+                $this->{$field} = $value;
             }
         }
-
         return $item;
     }
-
     /**
-     * Returns row from db with specified id
-     *
-     * @param int $id
-     * @param bool|false $publicOnly
-     * @return \ArrayObject
-     * @throws \Exception
-     */
+    * Returns row from db with specified id
+    *
+    * @param int $id
+    * @param bool|false $publicOnly
+    * @return \ArrayObject
+    * @throws \Exception
+    */
     public function get($id, $publicOnly = false)
     {
-        $row = $this->select(array(static::ID_COLUMN => $id))
-            ->current();
+        $row = $this->select([static::ID_COLUMN => $id])->current();
         if (!$row) {
             throw new Exception\ItemNotFoundException(ucfirst($this->table) . ' ' . $id . ' not found');
         }
-
         if ($publicOnly) {
             $row = $this->removePrivateFields($row);
         }
-        
         return $row;
     }
-
     /**
-     * Removes fields marked as private from public content (used in ::get())
-     *
-     * @param \ArrayObject $item
-     * @returns \ArrayObject $item
-     */
+    * Removes fields marked as private from public content (used in::get())
+    *
+    * @param \ArrayObject $item
+    * @returns \ArrayObject $item
+    */
     public function removePrivateFields($item)
     {
         if (is_object($item)) {
@@ -603,17 +525,15 @@ abstract class AppTable
         foreach ($this->privateFields as $field) {
             unset($item[$field]);
         }
-        
         return $item;
     }
-
     /**
-     * sets data for current id
-     *
-     * @param array $data
-     * @param int|bool|false $id
-     * @param bool $setDataToObject perform setId() call after update
-     */
+    * sets data for current id
+    *
+    * @param array $data
+    * @param int|bool|false $id
+    * @param bool $setDataToObject perform setId() call after update
+    */
     public function set($data, $id = false, $setDataToObject = true)
     {
         $myId = $this->{static::ID_COLUMN};
@@ -621,68 +541,62 @@ abstract class AppTable
             $myId = $id;
         }
         $this->update($data, [static::ID_COLUMN => $myId]);
-        if (($myId == $this->{static::ID_COLUMN}) && $setDataToObject) {
+        if ($myId == $this->{static::ID_COLUMN} && $setDataToObject) {
             $this->setId($this->{static::ID_COLUMN});
         }
     }
-
     /**
-     * Update
-     *
-     * @param  array $params
-     * @param  string|array|closure $where
-     * @return int affected rows
-     */
-    public function update($params, $where = null)
+    * Update
+    *
+    * @param array $params
+    * @param string|array|closure $where
+    * @param null|array $joins
+    * @return int affected rows
+    */
+    public function update($params, $where = null, array $joins = null)
     {
         $params = $this->removeUnnecessaryFields($params);
         if (empty($params)) {
             return 0;
         }
-
-        $result = $this->tableGateway->update($params, $where);
+        $result = parent::update($params, $where);
         return $result;
     }
-
     /**
-     * Deletes record by id
-     *
-     * @param mixed $id
-     * @returns altered rows
-     */
+    * Deletes record by id
+    *
+    * @param mixed $id
+    * @returns altered rows
+    */
     public function deleteById($id)
     {
-        $rowsAffected = $this->delete(array(static::ID_COLUMN => $id));
-
+        $rowsAffected = $this->delete([static::ID_COLUMN => $id]);
         return $rowsAffected;
     }
-    
     /**
-     * Deletes item
-     *
-     * @param Where|\Closure|string|array $where: Item ID or expression
-     * @return bool: true on OK, false on item not found
-     */
+    * Deletes item
+    *
+    * @param Where|\Closure|string|array $where: Item ID or expression
+    * @return bool: true on OK, false on item not found
+    */
     public function delete($where)
     {
         if (is_numeric($where)) {
-            $result = $this->tableGateway->delete(array(static::ID_COLUMN => $where));
+            $result = parent::delete([static::ID_COLUMN => $where]);
         } else {
-            $result = $this->tableGateway->delete($where);
+            $result = parent::delete($where);
         }
-
-        return (bool)$result;
+        return (bool) $result;
     }
-
     /**
-     * Returns full items list
-     *
-     * @param int|bool|false $limit
-     * @param int $offset
-     * @param int|null $total
-     * @return ResultSet
-     * @throws \Exception
-     */
+    * Returns full items list
+    *
+    * @param int|bool|false $limit
+    * @param int $offset
+    * @param int|null $total
+    * @return ResultSet
+    * @throws \Exception
+    */
     public function getList($limit = false, $offset = 0, &$total = null)
     {
         $select = $this->getSelect($this->table);
@@ -692,44 +606,39 @@ abstract class AppTable
         if ($offset) {
             $select->offset($offset);
         }
-
         $list = $this->execute($select);
         if (!is_null($total)) {
             $total = $this->query('select count(*) cnt from ' . $this->table)->current()->cnt;
         }
-
         return $list;
     }
-
     /**
-     * Returns column value from 1st line of query
-     *
-     * @param string $query
-     * @param array $params
-     * @returns string value
-     */
-    public function getCell($query, $params = array())
+    * Returns column value from 1st line of query
+    *
+    * @param string $query
+    * @param array $params
+    * @returns string value
+    */
+    public function getCell($query, $params = [])
     {
-        $q = (array)$this->query($query, $params)->current();
+        $q = (array) $this->query($query, $params)->current();
         return current($q);
     }
-
     /**
-     * Replace for bad platform function
-     *
-     * @param string $value
-     * @return string
-     */
+    * Replace for bad platform function
+    *
+    * @param string $value
+    * @return string
+    */
     function quoteValue($value)
     {
         $res = str_replace('\\', '\\\\', $value);
         $res = str_replace('\'', '\\\'', $res);
         return '\'' . $res . '\'';
     }
-
     protected function removeUnnecessaryFields($params)
     {
-        $params = (array)$params;
+        $params = (array) $params;
         foreach ($params as $key => $field) {
             if (!in_array($key, $this->goodFields)) {
                 unset($params[$key]);
@@ -741,55 +650,22 @@ abstract class AppTable
         }
         return $params;
     }
-
     /**
-     * Sets join expression for find() method
-     *
-     * @param string $join
-     */
+    * Sets join expression for find() method
+    *
+    * @param string $join
+    */
     public function setFindJoin($join)
     {
         $this->findJoin = $join;
-        return $this;
     }
-
     /**
-     * Returns join expression for find() method
-     *
-     * @return string
-     */
+    * Returns join expression for find() method
+    *
+    * @return string
+    */
     public function getFindJoin()
     {
         return $this->findJoin;
-    }
-
-    public static function populateModel($model, $data)
-    {
-        foreach ($data as $field => $value) {
-            if (property_exists($model, $field)) {
-                $model->$field = $value;
-            }
-        }
-
-        return $model;
-    }
-
-    /**
-     * @param $params
-     * @param int $limit
-     * @param int $offset
-     * @param bool $orderBy
-     * @param null $total
-     * @return static[]
-     */
-    public function findObjects($params, $limit = 0, $offset = 0, $orderBy = false, &$total = null)
-    {
-        $data = $this->find($params, $limit, $offset, $orderBy, $total);
-        $result = [];
-        foreach ($data as $modelId => $modelData) {
-            $model = new static();
-            $result[$modelData['id']] = static::populateModel($model, $modelData);
-        }
-        return $result;
     }
 }

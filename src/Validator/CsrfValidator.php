@@ -1,30 +1,23 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\Validator;
 
 use CodeIT\Utils\Strings;
-
 class CsrfValidator extends \Laminas\Validator\AbstractValidator
 {
-
     const NOT_SAME = 'notSame';
-
-    protected $messageTemplates = [
-        self::NOT_SAME => 'The form submitted did not originate from the expected site',
-    ];
-
+    protected $messageTemplates = [self::NOT_SAME => 'The form submitted did not originate from the expected site'];
     public function isValid($value)
     {
         $token = self::getCsrfToken();
-
         if ($value !== $token) {
             $this->error(self::NOT_SAME);
             return false;
         }
-
         return true;
     }
-
     /**
      * Returns array of validation failure messages
      *
@@ -34,13 +27,10 @@ class CsrfValidator extends \Laminas\Validator\AbstractValidator
     {
         $result = parent::getMessages();
         if (!empty($result)) {
-            $result = [
-                self::NOT_SAME => _('The form submitted did not originate from the expected site'),
-            ];
+            $result = [self::NOT_SAME => _('The form submitted did not originate from the expected site')];
         }
         return $result;
     }
-
     static function getCsrfToken()
     {
         if (isset($_SESSION['custom_csrf']) && $_SESSION['custom_csrf']) {
@@ -49,7 +39,6 @@ class CsrfValidator extends \Laminas\Validator\AbstractValidator
             $value = Strings::generatePassword(32);
             $_SESSION['custom_csrf'] = $value;
         }
-
         return $value;
     }
 }

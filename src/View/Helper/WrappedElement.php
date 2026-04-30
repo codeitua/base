@@ -1,14 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace CodeIT\View\Helper;
 
 use Laminas\Form\ElementInterface;
 use Laminas\View\Helper\AbstractHelper;
 use Laminas\Form\View\Helper\FormElementErrors;
-
 class WrappedElement extends AbstractHelper
 {
-
     public function __invoke(ElementInterface $element, $class = 'element')
     {
         $view = $this->getView();
@@ -19,11 +19,8 @@ class WrappedElement extends AbstractHelper
         $name = $element->getName();
         $id = $element->getAttribute('id');
         $ngIf = $element->getAttribute('data-ng-if');
-        
-        $name = (!empty($id)) ? $id : $name;
-
+        $name = !empty($id) ? $id : $name;
         $element->setAttribute('id', $name);
-
         if ($element instanceof \Laminas\Form\Element\Captcha) {
             $type = 'captcha';
         } elseif ($element instanceof \Application\Lib\Form\HTML) {
@@ -37,24 +34,21 @@ class WrappedElement extends AbstractHelper
             $input = $view->formMultiCheckbox($element, $element->getAttribute('label'));
         } else {
             $input = 'form' . ucfirst($type);
-            $input = $view->$input($element);
+            $input = $view->{$input}($element);
         }
-        $visible = !in_array($type, array('hidden'));
-
+        $visible = !in_array($type, ['hidden']);
         $elementErrorsHelper = $this->getElementErrorsHelper();
         $errors = $elementErrorsHelper->render($element);
         if (!empty($errors)) {
             //$errors = "<div class='error'>$errors [{$element->getName()}]</div>";
-            $errors = "<div class='error'>$errors</div>";
+            $errors = "<div class='error'>{$errors}</div>";
         }
-
         //$element->setAttribute('id', $element->getName());
         //translate labels
         $currLabel = $element->getLabel();
         if ($currLabel) {
             $element->setLabel($currLabel);
         }
-
         $label = '';
         try {
             $label = $view->formLabel($element);
@@ -64,40 +58,32 @@ class WrappedElement extends AbstractHelper
             case 'captcha':
                 $helper = new \Application\Lib\Form\View\Helper\Captcha\InOutputImage();
                 $input = $helper->render($element);
-                $elementHTML = "<div>$input $label</div>";
+                $elementHTML = "<div>{$input} {$label}</div>";
                 break;
             case 'checkbox':
             case 'radio':
-                $elementHTML = "<div>$input $label</div>";
+                $elementHTML = "<div>{$input} {$label}</div>";
                 break;
             case 'button':
-                $elementHTML = "<div class='el'>$input</div>";
+                $elementHTML = "<div class='el'>{$input}</div>";
                 break;
             //case 'html': $elementHTML = "<div>$input $label</div>"; break;
             default:
-                $elementHTML = (empty($label) ? '' : "<div class='label'>$label</div>") . "<div class='el'>$input</div>";
+                $elementHTML = (empty($label) ? '' : "<div class='label'>{$label}</div>") . "<div class='el'>{$input}</div>";
         }
-
-        return "<div class='$type $name " . $view->escapeHtml($class) . " "  . ($errors ? "highlited" : "") . "'" . (!empty($ngIf) ? ' ng-if="' . $ngIf . '"' : '') . ">
-				$elementHTML
-				$errors
-			</div>";
+        return "<div class='{$type} {$name} " . $view->escapeHtml($class) . " " . ($errors ? "highlited" : "") . "'" . (!empty($ngIf) ? ' ng-if="' . $ngIf . '"' : '') . ">\r\n{$elementHTML}\r\n{$errors}\r\n</div>";
     }
-
     protected function getElementErrorsHelper()
     {
         if (isset($this->elementErrorsHelper) && $this->elementErrorsHelper) {
             return $this->elementErrorsHelper;
         }
-
         if (method_exists($this->view, 'plugin')) {
             $this->elementErrorsHelper = $this->view->plugin('form_element_errors');
         }
-
         if (!$this->elementErrorsHelper instanceof FormElementErrors) {
             $this->elementErrorsHelper = new FormElementErrors();
         }
-
         return $this->elementErrorsHelper;
     }
 }
