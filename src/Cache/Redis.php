@@ -139,7 +139,12 @@ class Redis
     {
         if ($this->connected) {
             $mask = sprintf('%s*', $name);
-            $this->redis->evaluate("local keys = redis.call('keys', ARGV[1]); if #keys == 0 then return 0 end; return redis.call('del', unpack(keys))", [$this->config['namespace'] . $mask]);
+            $script = "local keys = redis.call('keys', ARGV[1]); if #keys == 0 then return 0 end; return redis.call('del', unpack(keys))";
+            try {
+                $this->redis->eval($script, [$this->config['namespace'] . $mask], 0);
+            } catch (\Throwable $e) {
+                $this->redis->evaluate($script, [$this->config['namespace'] . $mask]);
+            }
         }
     }
 }

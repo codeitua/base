@@ -39,5 +39,11 @@ SSO-only applications can ignore it at the model/schema level.
 
 ```bash
 composer install
+composer cs
 composer test
 ```
+
+## Coding Standard
+
+All hand-maintained PHP source and tests must follow PSR-12. Run `composer cs` before committing and
+`composer cs:fix` for safe mechanical formatting.
