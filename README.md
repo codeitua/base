@@ -35,9 +35,19 @@ SSO-only applications can ignore it at the model/schema level.
 
 `CodeIT\ACL\Authentication` keeps using `Application\Lib\Acl` and the existing `call(string $method, array $args)` ACL API.
 
+## Documentation
+
+- [CodeIT Base Reference](docs/reference.md) describes the package structure, controllers, ACL integration, cache services, table models, form classes, and view helpers.
+
 ## Tests
 
 ```bash
 composer install
+composer cs
 composer test
 ```
+
+## Coding Standard
+
+All hand-maintained PHP source and tests must follow PSR-12. Run `composer cs` before committing and
+`composer cs:fix` for safe mechanical formatting.
