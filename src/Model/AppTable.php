@@ -627,11 +627,18 @@ abstract class AppTable extends TableGateway
     /**
     * Replace for bad platform function
     *
-    * @param string $value
+    * @param scalar $value
     * @return string
     */
     function quoteValue($value)
     {
+        if (!is_scalar($value)) {
+            throw new \InvalidArgumentException('Only scalar values can be quoted');
+        }
+        if (is_bool($value)) {
+            $value = $value ? '1' : '0';
+        }
+        $value = (string) $value;
         $res = str_replace('\\', '\\\\', $value);
         $res = str_replace('\'', '\\\'', $res);
         return '\'' . $res . '\'';
