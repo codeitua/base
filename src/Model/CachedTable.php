@@ -4,15 +4,30 @@ declare(strict_types=1);
 
 namespace CodeIT\Model;
 
-use Application\Lib\Redis as RedisCache;
 use CodeIT\Utils\Registry;
 use Laminas\Db\ResultSet\ResultSet;
 class CachedTable extends AppTable
 {
     /**
-     * @var RedisCache
+     * Cache backend, normally a CodeIT\Cache\Redis instance
+     *
+     * @var object
      */
     protected static $cache = null;
+    /**
+     * Generation token per table, memoized for the current request
+     *
+     * @var array
+     */
+    protected static $findGenerations = [];
+    /**
+     * TTL in seconds for cached find() ID lists. Zero leaves find() uncached,
+     * which is the behaviour existing applications rely on. Set it in a model
+     * to opt that table into cached lists.
+     *
+     * @var int
+     */
+    protected $findCacheTtl = 0;
     /**
      * Creates table and sets id if necessary
      *
@@ -73,6 +88,28 @@ class CachedTable extends AppTable
         return parent::get($id);
     }
     /**
+     * Builds the full cache key for a table scoped key part
+     *
+     * @param string $key
+     * @return string
+     */
+    protected function cacheKey($key)
+    {
+        return 'table.' . $this->table . '.' . $key;
+    }
+    /**
+     * Cache key holding one hydrated row. Overridden where rows are cached per
+     * language or per any other scope, so that mget() reads the keys get()
+     * writes.
+     *
+     * @param int|string $id
+     * @return string
+     */
+    protected function itemCacheKey($id)
+    {
+        return $this->cacheKey($id);
+    }
+    /**
      * Gets cached value
      *
      * @param string $key
@@ -80,7 +117,7 @@ class CachedTable extends AppTable
      */
     public function cacheGet($key)
     {
-        return self::$cache->get('table.' . $this->table . '.' . $key);
+        return self::$cache->get($this->cacheKey($key));
     }
     /**
      * Assigns a value to a specified cached param
@@ -93,7 +130,7 @@ class CachedTable extends AppTable
      */
     public function cacheSet($key, $value, $timeout = 0, $try = 0)
     {
-        return self::$cache->set('table.' . $this->table . '.' . $key, $value, $timeout, $try);
+        return self::$cache->set($this->cacheKey($key), $value, $timeout, $try);
     }
     /**
      * Deletes cached value
@@ -103,7 +140,7 @@ class CachedTable extends AppTable
      */
     public function cacheDelete($key)
     {
-        return self::$cache->deleteCache('table.' . $this->table . '.' . $key);
+        return self::$cache->deleteCache($this->cacheKey($key));
     }
     /**
      * Deletes cached values with keys that start with name
@@ -112,10 +149,13 @@ class CachedTable extends AppTable
      */
     public function cacheDeleteByMask($keyMask)
     {
-        self::$cache->deleteByMask('table.' . $this->table . '.' . $keyMask);
+        self::$cache->deleteByMask($this->cacheKey($keyMask));
     }
     /**
      * Returns rows from db with specified id
+     *
+     * Reads every row with a single batched cache request and only falls back
+     * to get() for the ids the cache did not hold.
      *
      * @param array $ids
      * @param bool $publicOnly remove private fields
@@ -123,25 +163,24 @@ class CachedTable extends AppTable
      */
     public function mget($ids, $publicOnly = false)
     {
-        $keys = [];
-        foreach ($ids as $id) {
-            $keys[] = 'table.' . $this->table . '.' . $id;
+        $ids = array_values($ids);
+        if (!$ids) {
+            return [];
         }
-        $values = self::$cache->mget($keys);
+        $values = self::$cache->mget(array_map([$this, 'itemCacheKey'], $ids));
+        if (!is_array($values)) {
+            $values = [];
+        }
         $result = [];
         foreach ($ids as $num => $id) {
-            if (isset($values[$num]) && !empty($values[$num])) {
-                if ($publicOnly) {
-                    $result[$id] = $this->removePrivateFields($values[$num]);
-                } else {
-                    $result[$id] = $values[$num];
-                }
-            } else {
-                try {
-                    $result[$id] = $this->get($id, $publicOnly);
-                } catch (\Exception $e) {
-                    $this->delete($id);
-                }
+            if (!empty($values[$num])) {
+                $result[$id] = $publicOnly ? $this->removePrivateFields($values[$num]) : $values[$num];
+                continue;
+            }
+            try {
+                $result[$id] = $this->get($id, $publicOnly);
+            } catch (Exception\ItemNotFoundException $e) {
+                // The row was removed between the id lookup and this fetch.
             }
         }
         return $result;
@@ -156,10 +195,11 @@ class CachedTable extends AppTable
     {
         $id = parent::insert($set);
         $this->cacheDelete('list');
+        $this->invalidateFindCache();
         return $id;
     }
     /**
-    * Searches for items, fetching them by::get()
+    * Searches for items, fetching them by::mget()
     *
     * @param array $params, e.g. ['id', '>=', '135']
     * @param int $limit, set to 0 or false to no limit
@@ -167,13 +207,129 @@ class CachedTable extends AppTable
     * @param string|bool|false $orderBy
     * @param int &$total will be set to total count found
     * @param bool $publicOnly should we return full data or non-private fields only
-    * @return \ArrayObject
+    * @return \ArrayObject[]
     */
     public function find($params, $limit = 0, $offset = 0, $orderBy = false, &$total = null, $publicOnly = false)
     {
-        $ids = $this->findSimple($params, $limit, $offset, $orderBy, $total, [static::ID_COLUMN])->toArray();
-        $ids = array_column($ids, 'id');
-        return $this->mget($ids, $publicOnly);
+        return $this->mget($this->findIds($params, $limit, $offset, $orderBy, $total), $publicOnly);
+    }
+    /**
+    * Returns the matching ids, served from cache when findCacheTtl is set
+    *
+    * Only the id list and the total are cached: rows keep living in their own
+    * per-item keys, so an edited row is picked up by every cached list without
+    * invalidating any of them.
+    *
+    * @param array $params
+    * @param int $limit
+    * @param int $offset
+    * @param string|bool|false $orderBy
+    * @param int &$total
+    * @return array
+    */
+    protected function findIds($params, $limit, $offset, $orderBy, &$total)
+    {
+        if (!$this->findCacheTtl) {
+            return $this->queryIds($params, $limit, $offset, $orderBy, $total);
+        }
+        $key = $this->buildFindCacheKey($params, $limit, $offset, $orderBy, !is_null($total));
+        $cached = $this->cacheGet($key);
+        if (!is_array($cached) || !array_key_exists('ids', $cached)) {
+            $cached = [
+                'ids' => $this->queryIds($params, $limit, $offset, $orderBy, $total),
+                'total' => $total,
+            ];
+            $this->cacheSet($key, $cached, $this->findCacheTtl);
+        }
+        if (!is_null($total)) {
+            $total = $cached['total'];
+        }
+        return $cached['ids'];
+    }
+    /**
+    * Runs the id query behind find()
+    *
+    * @param array $params
+    * @param int $limit
+    * @param int $offset
+    * @param string|bool|false $orderBy
+    * @param int &$total
+    * @return array
+    */
+    private function queryIds($params, $limit, $offset, $orderBy, &$total)
+    {
+        $rows = $this->findSimple($params, $limit, $offset, $orderBy, $total, [static::ID_COLUMN])->toArray();
+        return array_column($rows, static::ID_COLUMN);
+    }
+    /**
+    * Builds the cache key for one find() query
+    *
+    * The generation token makes every list key of the table unreachable as
+    * soon as a write replaces it, so invalidation never scans the keyspace and
+    * works the same on Redis and Memcached.
+    *
+    * @param array $params
+    * @param int $limit
+    * @param int $offset
+    * @param string|bool|false $orderBy
+    * @param bool $withTotal
+    * @return string
+    */
+    protected function buildFindCacheKey($params, $limit, $offset, $orderBy, $withTotal)
+    {
+        $signature = serialize([
+            $params,
+            (int) $limit,
+            (int) $offset,
+            $orderBy,
+            (bool) $withTotal,
+            $this->getFindJoin(),
+            $this->getGroupBy(),
+            $this->getHaving(),
+            $this->findCacheScope(),
+        ]);
+        return 'find.' . $this->findGeneration() . '.' . substr(hash('sha256', $signature), 0, 16);
+    }
+    /**
+    * Extra values that make a cached find() result unique, for example the
+    * active language of a localized table
+    *
+    * @return array
+    */
+    protected function findCacheScope()
+    {
+        return [];
+    }
+    /**
+    * Current generation token of the table's cached lists
+    *
+    * @return string
+    */
+    protected function findGeneration()
+    {
+        if (!isset(self::$findGenerations[$this->table])) {
+            $generation = $this->cacheGet('findgen');
+            if (!$generation) {
+                $generation = uniqid('', true);
+                $this->cacheSet('findgen', $generation);
+            }
+            self::$findGenerations[$this->table] = $generation;
+        }
+        return self::$findGenerations[$this->table];
+    }
+    /**
+    * Drops every cached list of the table
+    *
+    * Storing a fresh token needs no coordination between concurrent writers:
+    * each of them stores a different value and every one of them invalidates.
+    */
+    protected function invalidateFindCache()
+    {
+        if (!$this->findCacheTtl) {
+            return;
+        }
+        self::$findGenerations[$this->table] = uniqid('', true);
+        $this->cacheSet('findgen', self::$findGenerations[$this->table]);
     }
     /**
     * Update
@@ -190,6 +346,7 @@ class CachedTable extends AppTable
             $this->cacheDelete($where['id']);
         }
         $this->cacheDelete('list');
+        $this->invalidateFindCache();
         return $result;
     }
     /**
@@ -208,6 +365,9 @@ class CachedTable extends AppTable
         } else {
             $result = parent::delete($where);
         }
+        if ($result) {
+            $this->invalidateFindCache();
+        }
         return (bool) $result;
     }
     /**
@@ -221,6 +381,7 @@ class CachedTable extends AppTable
         $rowsAffected = parent::delete([static::ID_COLUMN => $id]);
         $this->cacheDelete($id);
         $this->cacheDelete('list');
+        $this->invalidateFindCache();
         return $rowsAffected;
     }
     /**

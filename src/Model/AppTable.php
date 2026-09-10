@@ -67,7 +67,7 @@ abstract class AppTable extends TableGateway
      * @param mixed $databaseSchema
      * @param ResultSet $selectResultPrototype
      */
-    public function __construct($tableName, $id = null, $databaseSchema = null, ResultSet $selectResultPrototype = null)
+    public function __construct($tableName, $id = null, $databaseSchema = null, ?ResultSet $selectResultPrototype = null)
     {
         parent::__construct($tableName, $this->getAdapter(), $databaseSchema, $selectResultPrototype);
         if ($id) {
@@ -553,7 +553,7 @@ abstract class AppTable extends TableGateway
     * @param null|array $joins
     * @return int affected rows
     */
-    public function update($params, $where = null, array $joins = null)
+    public function update($params, $where = null, ?array $joins = null)
     {
         $params = $this->removeUnnecessaryFields($params);
         if (empty($params)) {
@@ -632,7 +632,9 @@ abstract class AppTable extends TableGateway
     */
     function quoteValue($value)
     {
-        $res = str_replace('\\', '\\\\', $value);
+        // Conditions carry ints, floats and null as well as strings, and this
+        // file is strict about types.
+        $res = str_replace('\\', '\\\\', (string) $value);
         $res = str_replace('\'', '\\\'', $res);
         return '\'' . $res . '\'';
     }

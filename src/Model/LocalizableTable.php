@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace CodeIT\Model;
 
+use CodeIT\Utils\Registry;
 abstract class LocalizableTable extends CachedTable
 {
     /**
@@ -30,8 +31,21 @@ abstract class LocalizableTable extends CachedTable
      */
     public function __construct($table, $id = null)
     {
+        // Both have to be known before parent::__construct(), because passing
+        // an id makes it load the row through getLocalData() straight away.
+        $this->locTable = $table . 'local';
+        $this->resolveLang();
         parent::__construct($table, $id);
-        $this->locTable = $this->table . 'local';
+    }
+    /**
+     * Takes the active language from the registry, keeping the default when
+     * the application does not publish one
+     */
+    protected function resolveLang()
+    {
+        if (Registry::isRegistered('lang')) {
+            $this->lang = (int) Registry::get('lang');
+        }
     }
     /**
      * Returns row from db with specified slug
@@ -78,7 +92,9 @@ abstract class LocalizableTable extends CachedTable
     {
         $item = $this->cacheGet($id . '.' . $this->lang);
         if (!$item) {
-            $item = parent::get($id, $publicOnly);
+            // The complete row is cached; private fields are dropped per call
+            // so that a publicOnly read cannot poison the cache for the rest.
+            $item = parent::get($id);
             if (isset($item->localData) && isset($item->localData[$this->lang])) {
                 $item2 = array_merge((array) $item, (array) $item->localData[$this->lang]);
                 unset($item2['localData']);
@@ -86,30 +102,27 @@ abstract class LocalizableTable extends CachedTable
             }
             $this->cacheSet($id . '.' . $this->lang, $item);
         }
-        return $item;
+        return $publicOnly ? $this->removePrivateFields($item) : $item;
     }
     /**
-     * Returns rows from db with specified id
+     * Localized rows are cached per language, so mget() must read the same
+     * keys get() writes
      *
-     * @param array $ids
-     * @return \ArrayObject
+     * @param int|string $id
+     * @return string
      */
-    public function mget($ids, $publicOnly = false)
+    protected function itemCacheKey($id)
     {
-        $keys = [];
-        foreach ($ids as $id) {
-            $keys[] = 'table.' . $this->table . '.' . $id . '.' . $this->lang;
-        }
-        $values = self::$cache->mget($keys);
-        $result = [];
-        foreach ($ids as $num => $id) {
-            if (isset($values[$num]) && !empty($values[$num])) {
-                $result[$id] = $values[$num];
-            } else {
-                $result[$id] = $this->get($id);
-            }
-        }
-        return $result;
+        return $this->cacheKey($id . '.' . $this->lang);
+    }
+    /**
+     * Keeps cached find() results of one language apart from another's
+     *
+     * @return array
+     */
+    protected function findCacheScope()
+    {
+        return [$this->lang];
     }
     /**
     * Deletes cached value and all its local values
@@ -221,6 +234,8 @@ abstract class LocalizableTable extends CachedTable
         if (!empty($this->name)) {
             $this->cacheDelete(base64_encode($this->name));
         }
+        // Localized values are written with raw SQL, past update()
+        $this->invalidateFindCache();
     }
     /**
     * Inserts a record

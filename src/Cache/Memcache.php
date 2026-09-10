@@ -59,24 +59,24 @@ class Memcache
     *
     * @param string $name param name
     * @param string $value param value
-    * @param int $timeout
+    * @param int $timeout TTL in seconds
     * @param int $try
     * @return bool true on success, false on fail MAX_TRIES times
     */
-    public function set($name, $value, $flag = false, $timeout = 0, $try = 0)
+    public function set($name, $value, $timeout = 0, $try = 0)
     {
         $key = $this->namespace . '.' . $name;
         if ($try > self::MAX_TRIES) {
             return false;
         }
-        $ret = $this->memc->set($key, $value, $flag, $timeout);
+        $ret = $this->memc->set($key, $value, 0, $timeout);
         if (!$ret) {
             if (MEMCACHE_DEBUG) {
                 Logger::write('Memcache::set(' . $key . '): FAILED!');
             }
             $this->disconnect();
             $this->connect();
-            $this->set($key, $value, $flag, $timeout, $try + 1);
+            $this->set($name, $value, $timeout, $try + 1);
         }
         if (MEMCACHE_DEBUG) {
             if ($ret) {
@@ -103,6 +103,34 @@ class Memcache
             }
         }
         return $ret;
+    }
+    /**
+    * Get the values of all the specified keys, positionally aligned with the
+    * requested keys. Missing keys hold false, like CodeIT\Cache\Redis::mget().
+    *
+    * @param array $keys
+    * @return array of mixed
+    */
+    public function mget($keys)
+    {
+        if (!MEMCACHE_ENABLED || !$keys) {
+            return [];
+        }
+        $prefixed = [];
+        foreach ($keys as $key) {
+            $prefixed[] = $this->namespace . '.' . $key;
+        }
+        // One request for the whole batch: \Memcache::get() accepts an array
+        // and answers with the found keys only.
+        $found = $this->memc->get($prefixed);
+        if (!is_array($found)) {
+            $found = [];
+        }
+        $result = [];
+        foreach ($prefixed as $num => $key) {
+            $result[$num] = $found[$key] ?? false;
+        }
+        return $result;
     }
     public function deleteCache($name)
     {

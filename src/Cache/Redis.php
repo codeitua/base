@@ -137,14 +137,22 @@ class Redis
     */
     public function deleteByMask($name)
     {
-        if ($this->connected) {
-            $mask = sprintf('%s*', $name);
-            $script = "local keys = redis.call('keys', ARGV[1]); if #keys == 0 then return 0 end; return redis.call('del', unpack(keys))";
-            try {
-                $this->redis->eval($script, [$this->config['namespace'] . $mask], 0);
-            } catch (\Throwable $e) {
-                $this->redis->evaluate($script, [$this->config['namespace'] . $mask]);
-            }
+        if (!$this->connected) {
+            return 0;
+        }
+        $mask = sprintf('%s*', $name);
+        // SCAN instead of KEYS: the same work, without blocking the server for
+        // the whole keyspace. Deleting inside the script keeps the pattern and
+        // the keys on the server side, past any client key prefixing.
+        $script = "local cursor = '0' local deleted = 0 repeat"
+            . " local res = redis.call('SCAN', cursor, 'MATCH', ARGV[1], 'COUNT', 500)"
+            . " cursor = res[1]"
+            . " if #res[2] > 0 then deleted = deleted + redis.call('DEL', unpack(res[2])) end"
+            . " until cursor == '0' return deleted";
+        try {
+            return (int) $this->redis->eval($script, [$this->config['namespace'] . $mask], 0);
+        } catch (\Throwable $e) {
+            return (int) $this->redis->evaluate($script, [$this->config['namespace'] . $mask]);
         }
     }
 }
