@@ -145,6 +145,19 @@ Model tests run without a database: subclass the table under test, stub `findSim
 `getUncached()`, and hand it the in-memory cache from `tests/Model/FakeCache.php`. See
 `tests/Model/CachedTableTest.php`.
 
+## Reading rows twice
+
+`get()` and `mget()` remember what they already read for the rest of the request, so asking for the
+same row again is free and a batched read only requests the ids it is missing. Callers therefore
+share one object per row: treat rows as read-only, as the reference already requires.
+
+Every override of `cacheDelete()` must call `forgetLocalRow()`, or the request keeps serving a row the
+cache no longer holds. `$localRowCache = false` opts a model out, and a worker that keeps the process
+alive between requests calls `CachedTable::forgetLocalRows()`.
+
+A model whose rows are cached per language should declare `$languages`, which turns every row
+invalidation into one exact delete instead of a scan over the whole keyspace.
+
 ## Benchmarking
 
 ```bash

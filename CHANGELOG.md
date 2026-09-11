@@ -1,5 +1,32 @@
 # Changelog
 
+## Unreleased
+
+- `find()` reads the generation token and the cached ID list in one command instead of two, because
+  the token moved out of the key and into the entry. The first `find()` of a request costs 2 cache
+  commands rather than 3, entries superseded by a write are overwritten in place instead of orphaned
+  until their TTL, and the key is shorter.
+- `get()` and `mget()` serve from a per-request identity map, so a row read twice in one request costs
+  one command, and a batched read only asks for the ids it does not already hold. `$localRowCache`
+  opts a model out; a worker that keeps the process alive calls `CachedTable::forgetLocalRows()`.
+- `getList()` caches only the ids and hydrates through `mget()`. It used to hydrate with one `get()`
+  per row and cache the whole hydrated list, which went stale as soon as a row was edited.
+- `LocalizableTable::cacheDelete()` no longer scans the keyspace on every row write, and no longer
+  deletes its numeric neighbours: the mask `table.news.1` also matched rows 10-19 and 100-199. A model
+  that declares `$languages` gets one exact delete instead.
+- `CodeIT\Cache\Redis` picks a serializer when the connection has none, instead of storing rows as
+  the string `Object`, and `Redis::bestSerializer()` avoids the fatal error that naming
+  `Redis::SERIALIZER_IGBINARY` causes on a build without igbinary.
+- `AppTable::set()` returns the id it wrote; `delete()` and `deleteById()` share one path, so deleting
+  by a where array now drops the cached list as deleting by id always did; `CachedTable::update()`
+  honours a model's `ID_COLUMN` instead of looking for a literal `id` key.
+- `getId()`/`setId()` no longer create a dynamic property for a model whose id column is not `$id`,
+  deprecated since PHP 8.2.
+- SQL assembly moved to `CodeIT\Model\SqlBuilder`, and `execute()`/`query()` report errors from one
+  place. `$cachePrefix` makes the per-key prefix configurable.
+- The benchmark covers deferred reads, the first `find()` of a request, serializer choice and payload
+  shape.
+
 ## 2.1.0
 
 Requires one change in applications that supply their own cache class: it must implement
