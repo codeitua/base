@@ -1,56 +1,57 @@
 {
-    "name": "codeit/base",
-    "type": "library",
-    "description": "CodeIT Laminas base utilities, cache, validators, forms, and MVC helpers.",
-    "license": "BSD-3-Clause",
-    "authors": [
-        {
-            "name": "CodeIT",
-            "homepage": "https://codeit.us/"
-        }
-    ],
-    "require": {
-        "php": ">=8.1",
-        "ext-json": "*",
-        "ext-mbstring": "*",
-        "laminas/laminas-db": "^2.21",
-        "laminas/laminas-eventmanager": "^3.13",
-        "laminas/laminas-filter": "^2.38",
-        "laminas/laminas-form": "^3.22",
-        "laminas/laminas-http": "^2.21",
-        "laminas/laminas-inputfilter": "^2.30",
-        "laminas/laminas-cli": "^1.15",
-        "laminas/laminas-mvc": "^3.8",
-        "laminas/laminas-router": "^3.14",
-        "laminas/laminas-servicemanager": "^3.22 || ^4.4",
-        "laminas/laminas-validator": "^2",
-        "laminas/laminas-view": "^2.37",
-        "psr/container": "^1.1 || ^2.0"
-    },
-    "require-dev": {
-        "phpunit/phpunit": "^10.5 || ^11.0 || ^12.0",
-        "squizlabs/php_codesniffer": "^3.10"
-    },
-    "suggest": {
-        "ext-redis": "Required when using CodeIT\\Cache\\RedisWrapper."
-    },
-    "autoload": {
-        "psr-4": {
-            "CodeIT\\": "src/"
-        }
-    },
-    "autoload-dev": {
-        "psr-4": {
-            "CodeIT\\BaseTest\\": "tests/"
-        }
-    },
-    "scripts": {
-        "cs": "phpcs",
-        "cs:fix": "phpcbf",
-        "test": "phpunit",
-        "test:unit": "phpunit --testsuite unit"
-    },
-    "config": {
-        "sort-packages": true
+  "name": "codeit/base",
+  "type": "library",
+  "description": "CodeIT Laminas base utilities, cache, validators, forms, and MVC helpers.",
+  "license": "BSD-3-Clause",
+  "authors": [
+    {
+      "name": "CodeIT",
+      "homepage": "https://codeit.us/"
     }
+  ],
+  "require": {
+    "php": ">=8.1",
+    "ext-json": "*",
+    "ext-mbstring": "*",
+    "laminas/laminas-db": "^2.21",
+    "laminas/laminas-eventmanager": "^3.13",
+    "laminas/laminas-filter": "^2.38",
+    "laminas/laminas-form": "^3.22",
+    "laminas/laminas-http": "^2.21",
+    "laminas/laminas-inputfilter": "^2.30",
+    "laminas/laminas-cli": "^1.15",
+    "laminas/laminas-mvc": "^3.8",
+    "laminas/laminas-router": "^3.14",
+    "laminas/laminas-servicemanager": "^3.22 || ^4.4",
+    "laminas/laminas-validator": "^2",
+    "laminas/laminas-view": "^2.37",
+    "psr/container": "^1.1 || ^2.0"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^10.5 || ^11.0 || ^12.0",
+    "squizlabs/php_codesniffer": "^3.10"
+  },
+  "suggest": {
+    "ext-redis": "Required when using CodeIT\\Cache\\RedisWrapper."
+  },
+  "autoload": {
+    "psr-4": {
+      "CodeIT\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "CodeIT\\BaseTest\\": "tests/"
+    }
+  },
+  "scripts": {
+    "cs": "phpcs",
+    "cs:fix": "phpcbf",
+    "test": "phpunit",
+    "test:unit": "phpunit --testsuite unit",
+    "bench": "@php bin/benchmark.php"
+  },
+  "config": {
+    "sort-packages": true
+  }
 }

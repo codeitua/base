@@ -144,3 +144,16 @@ composer test
 Model tests run without a database: subclass the table under test, stub `findSimple()` and
 `getUncached()`, and hand it the in-memory cache from `tests/Model/FakeCache.php`. See
 `tests/Model/CachedTableTest.php`.
+
+## Benchmarking
+
+```bash
+php bin/benchmark.php --cycles=3000 --rows=50 --redis-db=14
+php bin/benchmark.php --cycles=3000 --dsn="mysql:host=127.0.0.1;port=3306" --user=root --password=root
+```
+
+The report puts cache commands per cycle next to the time, because round trips are what this
+library costs: on a loopback Redis a round trip is ~0.6 ms while unserialising a 615-byte row is
+0.0016 ms. Optimise the command count, never the PHP. Read p99 rather than the mean — a lock or a
+stampede shows in the tail first. The `--dsn` form adds the lock comparison; the Redis database is
+flushed, so point it at a scratch index.

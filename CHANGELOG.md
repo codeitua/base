@@ -25,6 +25,8 @@
   a row through it.
 - `AppTable::quoteValue()` casts its argument, so an int, float, or null in a `find()` condition no
   longer raises a `TypeError` under this package's `strict_types`.
+- Added `bin/benchmark.php` (`composer bench`), which measures the model layer over thousands of
+  cycles and reports mean/p50/p95/p99 next to the number of cache commands each operation costs.
 - Added `AGENTS.md` and `docs/reference.md`.
 
 ## 2.0.0
