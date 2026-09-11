@@ -152,6 +152,65 @@ final class CachedTableTest extends TestCase
         self::assertSame($before, $this->cache->store);
     }
 
+    public function testACachedFindCostsOneCommandForTheGenerationAndTheIdList(): void
+    {
+        $table = $this->table(60);
+        $table->find([['enabled', '=', 1]]);          // populates generation + list
+        $this->cache->mgetCalls = 0;
+        $this->cache->getCalls = 0;
+        CachedTableProbe::forgetGenerations();        // a fresh request
+
+        $table->find([['enabled', '=', 1]]);
+
+        // One batched read covers findgen and the ID list; one more fetches rows.
+        self::assertSame(2, $this->cache->mgetCalls);
+        self::assertSame(0, $this->cache->getCalls, 'The generation must not need a read of its own.');
+    }
+
+    public function testAnEntryStampedWithAnOldGenerationIsAMiss(): void
+    {
+        $table = $this->table(60);
+        $table->find([['enabled', '=', 1]]);
+        self::assertSame(1, $table->findSimpleCalls);
+
+        $table->invalidateLists();
+        CachedTableProbe::forgetGenerations();
+        $table->find([['enabled', '=', 1]]);
+
+        self::assertSame(2, $table->findSimpleCalls, 'The stale entry must not be served.');
+    }
+
+    public function testGetListCachesIdsAndHydratesThroughOneBatchedRead(): void
+    {
+        $table = $this->table();
+        $this->cache->store['table.news.list'] = [1, 2, 3];
+        foreach ($table->rows as $id => $row) {
+            $this->cache->store['table.news.' . $id] = new \ArrayObject($row, \ArrayObject::ARRAY_AS_PROPS);
+        }
+        $this->cache->mgetCalls = 0;
+
+        $rows = $table->getList();
+
+        self::assertSame([1, 2, 3], array_keys($rows));
+        self::assertSame('First', $rows[1]->name);
+        self::assertSame(1, $this->cache->mgetCalls, 'The rows come back in one request, not one each.');
+        self::assertSame(0, $table->getUncachedCalls);
+    }
+
+    public function testAnEditedRowShowsThroughACachedList(): void
+    {
+        $table = $this->table();
+        $this->cache->store['table.news.list'] = [1, 2, 3];
+        foreach ($table->rows as $id => $row) {
+            $this->cache->store['table.news.' . $id] = new \ArrayObject($row, \ArrayObject::ARRAY_AS_PROPS);
+        }
+        // Someone edits row 2 and its entry is dropped.
+        $table->rows[2]['name'] = 'Edited';
+        $table->cacheDelete(2);
+
+        self::assertSame('Edited', $table->getList()[2]->name);
+    }
+
     public function testCachedRowsSurviveAListInvalidation(): void
     {
         $table = $this->table(60);

@@ -53,6 +53,12 @@ class CachedTableProbe extends CachedTable
         $this->privateFields = $fields;
     }
 
+    /** Simulates the next request, where the memoized generation is gone. */
+    public static function forgetGenerations(): void
+    {
+        self::$findGenerations = [];
+    }
+
     public function invalidateLists(): void
     {
         $this->invalidateFindCache();

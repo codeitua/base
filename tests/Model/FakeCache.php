@@ -18,11 +18,15 @@ final class FakeCache implements CacheInterface
     /** @var int */
     public $mgetCalls = 0;
 
+    /** @var int */
+    public $getCalls = 0;
+
     /** @var array key sets of every mget, in order */
     public $mgetKeys = [];
 
     public function get($key)
     {
+        $this->getCalls++;
         return $this->store[$key] ?? false;
     }
 

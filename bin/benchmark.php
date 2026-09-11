@@ -146,6 +146,12 @@ class BenchmarkTable extends CachedTable
         return self::$cache->commands;
     }
 
+    /** Simulates a fresh request, where nothing is memoized yet. */
+    public static function forgetGenerations(): void
+    {
+        self::$findGenerations = [];
+    }
+
     public static function cache(): CacheInterface
     {
         return self::$cache;
@@ -351,6 +357,12 @@ function main(array $options): int
     $cached->find([['enabled', '=', 1]]);
     $report->run('find() warm, cached ids', static fn() => $cached->find([['enabled', '=', 1]]));
     $report->run('find() warm, uncached ids', static fn() => $table->find([['enabled', '=', 1]]));
+    $report->run(
+        'find() warm, first of a request',
+        static fn() => $cached->find([['enabled', '=', 1]]),
+        null,
+        static fn() => BenchmarkTable::forgetGenerations(),
+    );
 
     if (isset($options['dsn'])) {
         BenchmarkTable::useDatabase(new PDO(

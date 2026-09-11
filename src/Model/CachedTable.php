@@ -23,6 +23,8 @@ class CachedTable extends AppTable
      * @var array
      */
     protected static $findGenerations = [];
+    /** Field carrying the generation a cached find() entry was written under. */
+    protected const GENERATION_FIELD = 'g';
     /**
      * TTL in seconds for cached find() ID lists. Zero leaves find() uncached,
      * which is the behaviour existing applications rely on. Set it in a model
@@ -376,9 +378,10 @@ class CachedTable extends AppTable
                     if (!$this->findCacheTtl) {
                         return [];
                     }
-                    return [$this->cacheKey(
-                        $this->buildFindCacheKey($params, $limit, $offset, $orderBy, $withTotal)
-                    )];
+                    return [
+                        $this->cacheKey('findgen'),
+                        $this->cacheKey($this->buildFindCacheKey($params, $limit, $offset, $orderBy, $withTotal)),
+                    ];
                 }
                 if ($ids === null) {
                     return [];
@@ -387,11 +390,14 @@ class CachedTable extends AppTable
             },
             function (array $byKey) use ($params, $limit, $offset, $orderBy, $withTotal, &$ids, &$total, &$served): void {
                 if ($ids === null) {
+                    if ($this->findCacheTtl && !empty($byKey[$this->cacheKey('findgen')])) {
+                        self::$findGenerations[$this->table] = $byKey[$this->cacheKey('findgen')];
+                    }
                     $key = $this->findCacheTtl
                         ? $this->cacheKey($this->buildFindCacheKey($params, $limit, $offset, $orderBy, $withTotal))
                         : null;
                     $cached = $key !== null ? ($byKey[$key] ?? false) : false;
-                    if (is_array($cached) && array_key_exists('ids', $cached)) {
+                    if ($this->entryIsCurrent($cached, $this->findGeneration())) {
                         $ids = $cached['ids'];
                         $total = $cached['total'];
                     } else {
@@ -487,9 +493,14 @@ class CachedTable extends AppTable
             return $this->queryIds($params, $limit, $offset, $orderBy, $total);
         }
         $key = $this->buildFindCacheKey($params, $limit, $offset, $orderBy, !is_null($total));
-        $cached = $this->cacheGet($key);
-        if (!is_array($cached) || !array_key_exists('ids', $cached)) {
+
+        // One command for the generation and the entry together, because the key
+        // no longer depends on the token: an entry stamped with an older one is a
+        // miss, and the next write overwrites it in place rather than orphaning it.
+        [$generation, $cached] = $this->readWithGeneration($key);
+        if (!$this->entryIsCurrent($cached, $generation)) {
             $cached = [
+                self::GENERATION_FIELD => $generation,
                 'ids' => $this->queryIds($params, $limit, $offset, $orderBy, $total),
                 'total' => $total,
             ];
@@ -499,6 +510,41 @@ class CachedTable extends AppTable
             $total = $cached['total'];
         }
         return $cached['ids'];
+    }
+    /**
+    * Reads the table's generation token and one cached entry in a single command
+    *
+    * @param string $key
+    * @return array{0: string, 1: mixed} the token and the entry
+    */
+    protected function readWithGeneration($key)
+    {
+        if (isset(self::$findGenerations[$this->table])) {
+            return [self::$findGenerations[$this->table], $this->cacheGet($key)];
+        }
+
+        $values = self::$cache->mget([$this->cacheKey('findgen'), $this->cacheKey($key)]);
+        $generation = is_array($values) && !empty($values[0]) ? $values[0] : null;
+        if ($generation === null) {
+            $generation = uniqid('', true);
+            $this->cacheSet('findgen', $generation);
+        }
+        self::$findGenerations[$this->table] = $generation;
+
+        return [$generation, is_array($values) ? ($values[1] ?? false) : false];
+    }
+    /**
+    * True when a cached entry was written under the generation still in force
+    *
+    * @param mixed $entry
+    * @param string $generation
+    * @return bool
+    */
+    protected function entryIsCurrent($entry, $generation)
+    {
+        return is_array($entry)
+            && array_key_exists('ids', $entry)
+            && ($entry[self::GENERATION_FIELD] ?? null) === $generation;
     }
     /**
     * Runs the id query behind find()
@@ -542,7 +588,7 @@ class CachedTable extends AppTable
             $this->getHaving(),
             $this->findCacheScope(),
         ]);
-        return 'find.' . $this->findGeneration() . '.' . substr(hash('sha256', $signature), 0, 16);
+        return 'find.' . substr(hash('sha256', $signature), 0, 12);
     }
     /**
     * Extra values that make a cached find() result unique, for example the
@@ -660,33 +706,32 @@ class CachedTable extends AppTable
         if ($limit || $offset) {
             $cachedList = false;
         }
-        if ($cachedList && ($list = $this->cacheGet('list'))) {
-            if (!is_null($total)) {
-                $total = sizeof($list);
+        // Only the ids are cached: the rows live in their own entries, so an
+        // edited row shows through without rebuilding the list.
+        $ids = $cachedList ? $this->cacheGet('list') : false;
+        if (!is_array($ids)) {
+            $column = static::ID_COLUMN;
+            $select = $this->getSelect($this->table);
+            if ($limit !== false) {
+                $select->limit($limit);
             }
-            return $list;
+            if ($offset) {
+                $select->offset($offset);
+            }
+            $ids = [];
+            foreach ($this->execute($select) as $item) {
+                $ids[] = $item->{$column};
+            }
+            unset($select);
+            if ($cachedList) {
+                $this->cacheSet('list', $ids);
+            }
         }
-        $column = static::ID_COLUMN;
-        $select = $this->getSelect($this->table);
-        if ($limit !== false) {
-            $select->limit($limit);
-        }
-        if ($offset) {
-            $select->offset($offset);
-        }
-        $list = $this->execute($select);
-        unset($select);
-        $res = [];
-        foreach ($list as $item) {
-            $res[$item->{$column}] = $this->get($item->{$column});
-        }
-        if ($cachedList) {
-            $this->cacheSet('list', $res);
-        }
+        $res = $this->mget($ids);
         if (!is_null($total)) {
             $total = sizeof($res);
             if (!$offset || $total == $limit) {
-                $total = $this->query('select count(*) cnt from ' . $this->table)->current()->cnt;
+                $total = $this->count();
             }
         }
         return $res;
