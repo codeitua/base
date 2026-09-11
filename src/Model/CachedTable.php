@@ -29,6 +29,14 @@ class CachedTable extends AppTable
      */
     protected $findCacheTtl = 0;
     /**
+     * Milliseconds a rebuild lock is held. Acquiring it costs one cache command
+     * and it is released by expiry, never by a second command. Zero turns the
+     * stampede guard off.
+     *
+     * @var int
+     */
+    protected $rebuildLockTtl = 3000;
+    /**
      * Creates table and sets id if necessary
      *
      * @param string $tableName
@@ -50,17 +58,19 @@ class CachedTable extends AppTable
      */
     public function get($id, $publicOnly = false)
     {
-        $row = $this->cacheGet($id);
+        $key = $this->itemCacheKeyPart($id);
+        $row = $this->cacheGet($key);
         if (!$row) {
-            $lockName = $this->getLockName($id);
-            $this->getLock($lockName, false, 10);
-            // check for data once more
-            $row = $this->cacheGet($id);
-            if (!$row) {
-                $row = $this->getUncached($id);
-                $this->cacheSet($id, $row);
+            // One command, released by expiry. Losing the race never blocks and
+            // never holds a database connection: look once more, then rebuild
+            // anyway, because a duplicate read costs far less than a queue.
+            if (!$this->acquireRebuildLock($id)) {
+                $row = $this->cacheGet($key);
             }
-            $this->releaseLock($lockName);
+            if (!$row) {
+                $row = $this->prepareCachedRow($this->getUncached($id));
+                $this->cacheSet($key, $row);
+            }
         }
         if ($publicOnly) {
             $row = $this->removePrivateFields($row);
@@ -76,6 +86,23 @@ class CachedTable extends AppTable
     private function getLockName($id)
     {
         return SITE_NAME . '.' . $this->table . '.' . $id;
+    }
+    /**
+     * Marks this process as the one rebuilding a row, in a single cache command.
+     *
+     * Returns true when nobody else is rebuilding, and true as well when the cache
+     * backend cannot lock at all, so an application with a custom cache keeps
+     * working exactly as before.
+     *
+     * @param int|string $id
+     * @return bool
+     */
+    protected function acquireRebuildLock($id)
+    {
+        if (!$this->rebuildLockTtl || !is_callable([self::$cache, 'acquireLock'])) {
+            return true;
+        }
+        return (bool) self::$cache->acquireLock($this->cacheKey('lock.' . $id), $this->rebuildLockTtl);
     }
     /**
      * Returns row from db with specified id
@@ -107,7 +134,29 @@ class CachedTable extends AppTable
      */
     protected function itemCacheKey($id)
     {
-        return $this->cacheKey($id);
+        return $this->cacheKey($this->itemCacheKeyPart($id));
+    }
+    /**
+     * Table scoped part of the key holding one row, the value get() and the
+     * batched write back both pass to cacheSet()
+     *
+     * @param int|string $id
+     * @return string
+     */
+    protected function itemCacheKeyPart($id)
+    {
+        return (string) $id;
+    }
+    /**
+     * Turns a row loaded by getUncached() into the shape that belongs under
+     * itemCacheKey(), for tables that cache a row per language or per tenant
+     *
+     * @param \ArrayObject $row
+     * @return \ArrayObject
+     */
+    protected function prepareCachedRow($row)
+    {
+        return $row;
     }
     /**
      * Gets cached value
@@ -171,19 +220,105 @@ class CachedTable extends AppTable
         if (!is_array($values)) {
             $values = [];
         }
+
         $result = [];
+        $missing = [];
         foreach ($ids as $num => $id) {
             if (!empty($values[$num])) {
-                $result[$id] = $publicOnly ? $this->removePrivateFields($values[$num]) : $values[$num];
+                $result[$id] = $values[$num];
                 continue;
             }
-            try {
-                $result[$id] = $this->get($id, $publicOnly);
-            } catch (Exception\ItemNotFoundException $e) {
-                // The row was removed between the id lookup and this fetch.
+            // Hold the position so the caller keeps the order it asked for.
+            $result[$id] = null;
+            $missing[] = $id;
+        }
+
+        if ($missing) {
+            $loaded = $this->loadRows($missing);
+            foreach ($missing as $id) {
+                if (isset($loaded[$id])) {
+                    $result[$id] = $loaded[$id];
+                } else {
+                    // The row was removed between the id lookup and this fetch.
+                    unset($result[$id]);
+                }
+            }
+        }
+
+        if ($publicOnly) {
+            foreach ($result as $id => $row) {
+                $result[$id] = $this->removePrivateFields($row);
             }
         }
         return $result;
+    }
+    /**
+     * Loads the rows a batched read could not serve and caches them.
+     *
+     * One call to getUncachedMany() and one batched write back, instead of the
+     * lock, read, query and write that fetching each row on its own would cost.
+     *
+     * @param array $ids
+     * @return array<int|string, \ArrayObject>
+     */
+    protected function loadRows(array $ids)
+    {
+        $rows = [];
+        $pairs = [];
+        foreach ($this->getUncachedMany($ids) as $id => $row) {
+            $row = $this->prepareCachedRow($row);
+            $rows[$id] = $row;
+            $pairs[$this->itemCacheKeyPart($id)] = $row;
+        }
+        $this->cacheSetMany($pairs);
+        return $rows;
+    }
+    /**
+     * Loads several rows at once.
+     *
+     * The default keeps the one row contract, so a model that only overrides
+     * getUncached() behaves exactly as before. Override this as well to load a
+     * whole batch and its relations in a few queries, which is what turns a cold
+     * list from one query per row into a handful.
+     *
+     * @param array $ids
+     * @return array<int|string, \ArrayObject> keyed by id, missing ids left out
+     */
+    public function getUncachedMany(array $ids)
+    {
+        $rows = [];
+        foreach ($ids as $id) {
+            try {
+                $rows[$id] = $this->getUncached($id);
+            } catch (Exception\ItemNotFoundException $e) {
+                // A row that no longer exists is left out of the result.
+            }
+        }
+        return $rows;
+    }
+    /**
+     * Writes several rows in one batch, falling back to one call each when the
+     * cache backend cannot do it
+     *
+     * @param array<string, mixed> $pairs key part => value
+     * @param int $timeout
+     */
+    protected function cacheSetMany(array $pairs, $timeout = 0)
+    {
+        if (!$pairs) {
+            return;
+        }
+        if (is_callable([self::$cache, 'setMany'])) {
+            $prefixed = [];
+            foreach ($pairs as $key => $value) {
+                $prefixed[$this->cacheKey($key)] = $value;
+            }
+            self::$cache->setMany($prefixed, $timeout);
+            return;
+        }
+        foreach ($pairs as $key => $value) {
+            $this->cacheSet($key, $value, $timeout);
+        }
     }
     /**
     * Inserts a record

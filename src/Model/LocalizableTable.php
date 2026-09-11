@@ -90,17 +90,14 @@ abstract class LocalizableTable extends CachedTable
      */
     public function get($id, $publicOnly = false)
     {
-        $item = $this->cacheGet($id . '.' . $this->lang);
+        $item = $this->cacheGet($this->itemCacheKeyPart($id));
         if (!$item) {
-            // The complete row is cached; private fields are dropped per call
-            // so that a publicOnly read cannot poison the cache for the rest.
-            $item = parent::get($id);
-            if (isset($item->localData) && isset($item->localData[$this->lang])) {
-                $item2 = array_merge((array) $item, (array) $item->localData[$this->lang]);
-                unset($item2['localData']);
-                $item = new \ArrayObject($item2, \ArrayObject::ARRAY_AS_PROPS);
-            }
-            $this->cacheSet($id . '.' . $this->lang, $item);
+            // parent::get() caches the untranslated row under its own key, so all
+            // languages share one database read. The complete row is cached;
+            // private fields are dropped per call so that a publicOnly read
+            // cannot poison the cache for the rest.
+            $item = $this->prepareCachedRow(parent::get($id));
+            $this->cacheSet($this->itemCacheKeyPart($id), $item);
         }
         return $publicOnly ? $this->removePrivateFields($item) : $item;
     }
@@ -111,9 +108,59 @@ abstract class LocalizableTable extends CachedTable
      * @param int|string $id
      * @return string
      */
-    protected function itemCacheKey($id)
+    protected function itemCacheKeyPart($id)
     {
-        return $this->cacheKey($id . '.' . $this->lang);
+        return $id . '.' . $this->lang;
+    }
+    /**
+     * Merges the active language into a row loaded by getUncached()
+     *
+     * @param \ArrayObject $row
+     * @return \ArrayObject
+     */
+    protected function prepareCachedRow($row)
+    {
+        if (!isset($row->localData) || !isset($row->localData[$this->lang])) {
+            return $row;
+        }
+        $merged = array_merge((array) $row, (array) $row->localData[$this->lang]);
+        unset($merged['localData']);
+        return new \ArrayObject($merged, \ArrayObject::ARRAY_AS_PROPS);
+    }
+    /**
+     * Serves a batch from the untranslated rows first, so the languages keep
+     * sharing one database read, and only queries what neither level holds
+     *
+     * @param array $ids
+     * @return array<int|string, \ArrayObject>
+     */
+    public function getUncachedMany(array $ids)
+    {
+        $raw = self::$cache->mget(array_map(fn($id) => $this->cacheKey($id), $ids));
+        $rows = [];
+        $missing = [];
+        foreach (array_values($ids) as $num => $id) {
+            if (is_array($raw) && !empty($raw[$num])) {
+                $rows[$id] = $raw[$num];
+                continue;
+            }
+            $missing[] = $id;
+        }
+
+        if ($missing) {
+            $loaded = parent::getUncachedMany($missing);
+            $rows += $loaded;
+            $this->cacheSetMany($loaded);
+        }
+
+        // Keep the order the caller asked for.
+        $ordered = [];
+        foreach ($ids as $id) {
+            if (isset($rows[$id])) {
+                $ordered[$id] = $rows[$id];
+            }
+        }
+        return $ordered;
     }
     /**
      * Keeps cached find() results of one language apart from another's

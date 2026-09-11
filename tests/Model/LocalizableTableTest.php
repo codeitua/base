@@ -41,12 +41,15 @@ final class LocalizableTableTest extends TestCase
 
         $items = $table->find([]);
 
-        self::assertSame(1, $this->cache->mgetCalls);
-        self::assertSame(['table.news.1.2', 'table.news.2.2'], $this->cache->mgetKeys);
+        // Two batched reads on a cold cache: the per-language keys, then the
+        // untranslated rows the languages share. Never one read per row.
+        self::assertSame(2, $this->cache->mgetCalls);
+        self::assertSame(['table.news.1.2', 'table.news.2.2'], $this->cache->mgetKeys[0]);
+        self::assertSame(['table.news.1', 'table.news.2'], $this->cache->mgetKeys[1]);
         self::assertSame('Перший', $items[1]->name);
         self::assertArrayHasKey('table.news.1.2', $this->cache->store);
 
-        // A second pass is served entirely from the batch.
+        // A second pass is served entirely from the first batch.
         $table->find([]);
         self::assertSame(2, $table->getUncachedCalls);
     }
@@ -70,7 +73,7 @@ final class LocalizableTableTest extends TestCase
 
         $table->find([]);
 
-        self::assertSame(['table.news.1.3', 'table.news.2.3'], $this->cache->mgetKeys);
+        self::assertSame(['table.news.1.3', 'table.news.2.3'], $this->cache->mgetKeys[0]);
     }
 
     public function testDefaultLanguageIsKeptWhenTheRegistryHasNone(): void
@@ -79,6 +82,6 @@ final class LocalizableTableTest extends TestCase
 
         $table->find([]);
 
-        self::assertSame(['table.news.1.1', 'table.news.2.1'], $this->cache->mgetKeys);
+        self::assertSame(['table.news.1.1', 'table.news.2.1'], $this->cache->mgetKeys[0]);
     }
 }

@@ -25,6 +25,19 @@
   a row through it.
 - `AppTable::quoteValue()` casts its argument, so an int, float, or null in a `find()` condition no
   longer raises a `TypeError` under this package's `strict_types`.
+- `mget()` loads everything the cache could not serve through one `getUncachedMany()` call and writes
+  it back in one batch, instead of falling back to `get()` per row. Measured over 3000 cycles, a cold
+  list of 50 rows went from 151 cache commands and 88.9 ms to 2 commands and 1.6 ms; with a real query
+  per row behind it, implementing `getUncachedMany()` in the model takes 31.5 ms down to 2.4 ms.
+- The rebuild lock is taken with one cache command (`SET NX PX`) and released by expiry, instead of two
+  MySQL round trips through `GET_LOCK`/`RELEASE_LOCK`. Losing the race no longer blocks for ten seconds
+  holding a database connection: the row is read once more and then rebuilt anyway. `$rebuildLockTtl`
+  sets the hold time, `0` turns the guard off, and a cache backend without `acquireLock()` keeps
+  working with no lock at all.
+- `CodeIT\Cache\Redis::setMany()` pipelines a batch of writes into one round trip, and `acquireLock()`
+  implements the single command lock; `Memcache` provides both through `add()`.
+- `itemCacheKeyPart()` and `prepareCachedRow()` replace the `itemCacheKey()` override, so the batched
+  path caches rows in the same shape and under the same keys as `get()`.
 - Added `bin/benchmark.php` (`composer bench`), which measures the model layer over thousands of
   cycles and reports mean/p50/p95/p99 next to the number of cache commands each operation costs.
 - Added `AGENTS.md` and `docs/reference.md`.

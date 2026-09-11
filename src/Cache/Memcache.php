@@ -132,6 +132,35 @@ class Memcache
         }
         return $result;
     }
+    /**
+    * Writes several keys, one call each: the memcached protocol has no batched set
+    *
+    * @param array $pairs key => value
+    * @param int $ttl
+    * @return bool
+    */
+    public function setMany($pairs, $ttl = 0)
+    {
+        foreach ($pairs as $key => $value) {
+            $this->set($key, $value, $ttl);
+        }
+        return true;
+    }
+    /**
+    * Takes a short lived lock in a single command; add() only succeeds when the
+    * key is absent. There is no release, the key expires.
+    *
+    * @param string $key
+    * @param int $ttl milliseconds
+    * @return bool
+    */
+    public function acquireLock($key, $ttl)
+    {
+        if (!MEMCACHE_ENABLED) {
+            return true;
+        }
+        return (bool) $this->memc->add($this->namespace . '.' . $key, 1, 0, max(1, (int) ceil($ttl / 1000)));
+    }
     public function deleteCache($name)
     {
         return $this->memc->delete($this->namespace . '.' . $name);

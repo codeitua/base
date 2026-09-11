@@ -16,7 +16,7 @@ final class FakeCache
     /** @var int */
     public $mgetCalls = 0;
 
-    /** @var array */
+    /** @var array key sets of every mget, in order */
     public $mgetKeys = [];
 
     public function get($key)
@@ -33,12 +33,29 @@ final class FakeCache
     public function mget($keys)
     {
         $this->mgetCalls++;
-        $this->mgetKeys = $keys;
+        $this->mgetKeys[] = $keys;
         $values = [];
         foreach ($keys as $key) {
             $values[] = $this->store[$key] ?? false;
         }
         return $values;
+    }
+
+    public function setMany($pairs, $ttl = 0)
+    {
+        foreach ($pairs as $key => $value) {
+            $this->store[$key] = $value;
+        }
+        return true;
+    }
+
+    public function acquireLock($key, $ttlMs)
+    {
+        if (isset($this->store[$key])) {
+            return false;
+        }
+        $this->store[$key] = 1;
+        return true;
     }
 
     public function deleteCache($key)

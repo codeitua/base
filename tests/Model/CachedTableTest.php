@@ -47,7 +47,7 @@ final class CachedTableTest extends TestCase
         self::assertSame(0, $table->getUncachedCalls);
         self::assertSame(
             ['table.news.1', 'table.news.2', 'table.news.3'],
-            $this->cache->mgetKeys
+            $this->cache->mgetKeys[0]
         );
     }
 

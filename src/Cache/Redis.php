@@ -114,6 +114,48 @@ class Redis
         return $ret;
     }
     /**
+    * Writes several keys in one pipeline, so a batch of rows costs one round
+    * trip instead of one per row
+    *
+    * @param array $pairs key => value
+    * @param int $ttl TTL in seconds, 0 to keep until deleted
+    * @return bool
+    */
+    public function setMany($pairs, $ttl = 0)
+    {
+        if (!$this->config['enabled'] || !$pairs) {
+            return false;
+        }
+        $pipeline = $this->redis->multi(\Redis::PIPELINE);
+        foreach ($pairs as $key => $value) {
+            if ($ttl) {
+                $pipeline->setex($key, $ttl, $value);
+            } else {
+                $pipeline->set($key, $value);
+            }
+        }
+        $pipeline->exec();
+        return true;
+    }
+    /**
+    * Takes a short lived lock in a single command.
+    *
+    * There is no release: the key expires. A caller that loses the race must not
+    * wait for it, because a queue of waiting workers costs far more than the
+    * duplicated work the lock was meant to avoid.
+    *
+    * @param string $key
+    * @param int $ttl milliseconds
+    * @return bool true when this process took the lock
+    */
+    public function acquireLock($key, $ttl)
+    {
+        if (!$this->config['enabled']) {
+            return true;
+        }
+        return (bool) $this->redis->set($key, 1, ['NX', 'PX' => max(1, (int) $ttl)]);
+    }
+    /**
     * Remove specified keys .
     *
     * @param mixed $keys: string with key or array of keys

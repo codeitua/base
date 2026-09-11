@@ -67,6 +67,23 @@ final class BenchmarkCache
         return $ttl ? $this->redis->setex($key, $ttl, $value) : $this->redis->set($key, $value);
     }
 
+    public function setMany($pairs, $ttl = 0)
+    {
+        $this->commands++;                       // one pipeline is one round trip
+        $pipeline = $this->redis->multi(\Redis::PIPELINE);
+        foreach ($pairs as $key => $value) {
+            $ttl ? $pipeline->setex($key, $ttl, $value) : $pipeline->set($key, $value);
+        }
+        $pipeline->exec();
+        return true;
+    }
+
+    public function acquireLock($key, $ttl)
+    {
+        $this->commands++;
+        return (bool) $this->redis->set($key, 1, ['NX', 'PX' => max(1, (int) $ttl)]);
+    }
+
     public function deleteCache($keys)
     {
         $this->commands++;
@@ -86,17 +103,25 @@ final class BenchmarkCache
 }
 
 /** A CachedTable whose database is replaced by a fixed row set. */
-final class BenchmarkTable extends CachedTable
+class BenchmarkTable extends CachedTable
 {
-    private int $rows = 1;
+    protected int $rows = 1;
+
+    /** When set, a row load costs a real database round trip, as in an application. */
+    protected static ?PDO $pdo = null;
 
     public function __construct()
     {
     }
 
-    public static function make(string $table, int $rows, int $findCacheTtl = 0): self
+    public static function useDatabase(?PDO $pdo): void
     {
-        $instance = new self();
+        self::$pdo = $pdo;
+    }
+
+    public static function make(string $table, int $rows, int $findCacheTtl = 0): static
+    {
+        $instance = new static();
         $instance->table = $table;
         $instance->rows = $rows;
         $instance->findCacheTtl = $findCacheTtl;
@@ -133,6 +158,7 @@ final class BenchmarkTable extends CachedTable
 
     public function getUncached($id)
     {
+        self::$pdo?->query('SELECT ' . (int) $id)->fetch();
         return $this->row((int) $id);
     }
 
@@ -159,7 +185,7 @@ final class BenchmarkTable extends CachedTable
     }
 
     /** A row of roughly the size a content table caches. */
-    private function row(int $id): \ArrayObject
+    protected function row(int $id): \ArrayObject
     {
         return new \ArrayObject([
             'id' => $id,
@@ -172,6 +198,21 @@ final class BenchmarkTable extends CachedTable
                 'href' => ['a' => '/upload/bench/' . $id . '.jpg'],
             ],
         ], \ArrayObject::ARRAY_AS_PROPS);
+    }
+}
+
+/** The same table with the batch hook implemented, as a model would. */
+final class BatchedBenchmarkTable extends BenchmarkTable
+{
+    /** One load for the whole batch, the way a model would fetch rows and relations. */
+    public function getUncachedMany(array $ids)
+    {
+        self::$pdo?->query('SELECT ' . implode(',', array_map('intval', $ids)))->fetch();
+        $rows = [];
+        foreach ($ids as $id) {
+            $rows[$id] = $this->row((int) $id);
+        }
+        return $rows;
     }
 }
 
@@ -304,7 +345,17 @@ function main(array $options): int
     $report->run('find() warm, cached ids', static fn() => $cached->find([['enabled', '=', 1]]));
     $report->run('find() warm, uncached ids', static fn() => $table->find([['enabled', '=', 1]]));
 
-    $report->section('cold reads, where a deploy or a Redis restart lands');
+    if (isset($options['dsn'])) {
+        BenchmarkTable::useDatabase(new PDO(
+            (string) $options['dsn'],
+            (string) ($options['user'] ?? 'root'),
+            (string) ($options['password'] ?? ''),
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
+        ));
+    }
+
+    $report->section('cold reads, where a deploy or a Redis restart lands'
+        . (isset($options['dsn']) ? ', one real query per load' : ', no database'));
     $report->run(
         'get() one cold row',
         static fn() => $table->get(1),
@@ -312,12 +363,24 @@ function main(array $options): int
         static fn() => $table->cacheDelete(1),
     );
     $report->run(
-        'mget() ' . $rows . ' cold rows',
+        'mget() ' . $rows . ' cold, per row',
         static fn() => $table->mget($all),
         max(20, (int) ($cycles / 20)),
         static function () use ($table, $rows): void {
             for ($id = 1; $id <= $rows; $id++) {
                 $table->cacheDelete($id);
+            }
+        },
+    );
+
+    $batched = BatchedBenchmarkTable::make('bench', $rows);
+    $report->run(
+        'mget() ' . $rows . ' cold, batched',
+        static fn() => $batched->mget($all),
+        max(20, (int) ($cycles / 20)),
+        static function () use ($batched, $rows): void {
+            for ($id = 1; $id <= $rows; $id++) {
+                $batched->cacheDelete($id);
             }
         },
     );
