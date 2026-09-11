@@ -120,14 +120,7 @@ abstract class AppTable extends TableGateway
             $resultSet->initialize($dataSource);
             return $resultSet;
         } catch (\Exception $e) {
-            if (defined('DEBUG') && DEBUG) {
-                $previousMessage = '';
-                if ($e->getPrevious()) {
-                    $previousMessage = ': ' . $e->getPrevious()->getMessage();
-                }
-                throw new \Exception('SQL Error: ' . $e->getMessage() . $previousMessage . "<br>\r\n        SQL Query was: <br><br>\n\n" . $sql->getSqlString($this->adapter->platform));
-                //\Laminas\Debug::dump($e);
-            }
+            $this->rethrowSqlError($e, $sql->getSqlString($this->adapter->platform));
         }
         return [];
     }
@@ -144,18 +137,34 @@ abstract class AppTable extends TableGateway
         if (!$params) {
             $params = Adapter::QUERY_MODE_EXECUTE;
         }
+        // Stays null when the query failed and DEBUG swallowed the exception.
+        $resultSet = null;
         try {
             $resultSet = $this->adapter->query($query, $params);
         } catch (\Exception $e) {
-            if (defined('DEBUG') && DEBUG) {
-                $previousMessage = '';
-                if ($e->getPrevious()) {
-                    $previousMessage = ': ' . $e->getPrevious()->getMessage();
-                }
-                throw new \Exception('SQL Error: ' . $e->getMessage() . ': ' . $previousMessage . "<br>\r\n        SQL Query was: <br><br>\n\n" . $query . "<br>params: " . print_r($params, true));
-            }
+            $this->rethrowSqlError($e, $query . '<br>params: ' . print_r($params, true));
         }
         return $resultSet;
+    }
+    /**
+    * Reports a failed query, with the SQL that caused it when DEBUG is on.
+    *
+    * Outside DEBUG the exception is swallowed and the caller gets an empty
+    * result, which is how this class has always behaved.
+    *
+    * @param \Exception $e
+    * @param string $sql
+    * @throws \Exception
+    */
+    private function rethrowSqlError(\Exception $e, $sql)
+    {
+        if (!defined('DEBUG') || !DEBUG) {
+            return;
+        }
+        $previous = $e->getPrevious() ? ': ' . $e->getPrevious()->getMessage() : '';
+        throw new \Exception(
+            'SQL Error: ' . $e->getMessage() . $previous . "<br>\r\n        SQL Query was: <br><br>\n\n" . $sql
+        );
     }
     /**
     * Acquires lock (mutex)
