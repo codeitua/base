@@ -35,6 +35,10 @@ SSO-only applications can ignore it at the model/schema level.
 
 `CodeIT\ACL\Authentication` keeps using `Application\Lib\Acl` and the existing `call(string $method, array $args)` ACL API.
 
+## Documentation
+
+- [CodeIT Base Reference](docs/reference.md) describes the package structure, controllers, ACL integration, cache services, table models, form classes, and view helpers.
+
 ## Tests
 
 ```bash

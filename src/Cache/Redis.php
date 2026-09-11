@@ -143,6 +143,9 @@ class Redis
             try {
                 $this->redis->eval($script, [$this->config['namespace'] . $mask], 0);
             } catch (\Throwable $e) {
+                if (strpos($e->getMessage(), 'No method with name eval') === false) {
+                    throw $e;
+                }
                 $this->redis->evaluate($script, [$this->config['namespace'] . $mask]);
             }
         }
