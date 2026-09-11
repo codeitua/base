@@ -504,17 +504,16 @@ abstract class AppTable extends TableGateway
     * @param array $data
     * @param int|bool|false $id
     * @param bool $setDataToObject perform setId() call after update
+    * @return int|string the id that was written
     */
     public function set($data, $id = false, $setDataToObject = true)
     {
-        $myId = $this->{static::ID_COLUMN};
-        if ($id) {
-            $myId = $id;
-        }
+        $myId = $id ?: $this->getId();
         $this->update($data, [static::ID_COLUMN => $myId]);
-        if ($myId == $this->{static::ID_COLUMN} && $setDataToObject) {
-            $this->setId($this->{static::ID_COLUMN});
+        if ($myId == $this->getId() && $setDataToObject) {
+            $this->setId($this->getId());
         }
+        return $myId;
     }
     /**
     * Update
@@ -541,8 +540,7 @@ abstract class AppTable extends TableGateway
     */
     public function deleteById($id)
     {
-        $rowsAffected = $this->delete([static::ID_COLUMN => $id]);
-        return $rowsAffected;
+        return $this->delete([static::ID_COLUMN => $id]);
     }
     /**
     * Deletes item

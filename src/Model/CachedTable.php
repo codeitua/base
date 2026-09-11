@@ -596,8 +596,9 @@ class CachedTable extends AppTable
     public function update($params, $where = null, $clearCache = true)
     {
         $result = parent::update($params, $where);
-        if ($clearCache && is_array($where) && isset($where['id']) && is_numeric($where['id'])) {
-            $this->cacheDelete($where['id']);
+        $id = is_array($where) ? ($where[static::ID_COLUMN] ?? $where['id'] ?? null) : null;
+        if ($clearCache && is_numeric($id)) {
+            $this->cacheDelete($id);
         }
         $this->cacheDelete('list');
         $this->invalidateFindCache();
@@ -611,18 +612,29 @@ class CachedTable extends AppTable
     */
     public function delete($where)
     {
+        return (bool) $this->deleteRow($where, is_numeric($where) ? $where : null);
+    }
+    /**
+    * Deletes and drops whatever the deleted rows leave behind in the cache
+    *
+    * @param Where|\Closure|string|array $where
+    * @param int|string|null $id the row to forget, when the caller knows it
+    * @return int affected rows
+    */
+    private function deleteRow($where, $id)
+    {
         if (is_numeric($where)) {
-            $result = parent::delete([static::ID_COLUMN => $where]);
-            if ($result) {
-                $this->cacheDelete($where);
-            }
-        } else {
-            $result = parent::delete($where);
+            $where = [static::ID_COLUMN => $where];
         }
+        $result = parent::delete($where);
         if ($result) {
+            if ($id !== null) {
+                $this->cacheDelete($id);
+            }
+            $this->cacheDelete('list');
             $this->invalidateFindCache();
         }
-        return (bool) $result;
+        return $result;
     }
     /**
     * Deletes record by id, removes cached data
@@ -632,11 +644,7 @@ class CachedTable extends AppTable
     */
     public function deleteById($id)
     {
-        $rowsAffected = parent::delete([static::ID_COLUMN => $id]);
-        $this->cacheDelete($id);
-        $this->cacheDelete('list');
-        $this->invalidateFindCache();
-        return $rowsAffected;
+        return $this->deleteRow([static::ID_COLUMN => $id], $id);
     }
     /**
     * Returns full items list from cache
@@ -692,14 +700,12 @@ class CachedTable extends AppTable
     */
     public function set($data, $id = false, $setDataToObject = true)
     {
-        parent::set($data, $id, false);
-        $myId = $this->{static::ID_COLUMN};
-        if ($id) {
-            $myId = $id;
+        // parent::set() goes through update(), which already dropped this row,
+        // the list and the find generation. Only the reload is left to do.
+        $myId = parent::set($data, $id, false);
+        if ($myId == $this->getId() && $setDataToObject) {
+            $this->setId($this->getId());
         }
-        $this->cacheDelete($myId);
-        if ($myId == $this->{static::ID_COLUMN} && $setDataToObject) {
-            $this->setId($this->{static::ID_COLUMN});
-        }
+        return $myId;
     }
 }
