@@ -1,6 +1,9 @@
 # Changelog
 
-## Unreleased
+## 2.1.0
+
+Requires one change in applications that supply their own cache class: it must implement
+`CodeIT\Cache\CacheInterface`. See UPGRADE.md. Everything else is additive.
 
 - `CachedTable::find()` can cache the ids and total of a query instead of running it every time.
   Opt in per model with `protected $findCacheTtl = <seconds>`; the default of `0` keeps the previous
