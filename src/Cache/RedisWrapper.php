@@ -16,6 +16,7 @@ namespace CodeIT\Cache;
 * @method string|bool get($key)
 * @method array mget(array $array)
 * @method true flushDB()
+* @method mixed eval($script, $args = array(), $numKeys = 0)
 * @method mixed evaluate($script, $args = array(), $numKeys = 0)
 */
 class RedisWrapper

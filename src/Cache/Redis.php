@@ -194,6 +194,10 @@ class Redis implements CacheInterface
         try {
             return (int) $this->redis->eval($script, [$this->config['namespace'] . $mask], 0);
         } catch (\Throwable $e) {
+            // Only an old wrapper without eval() is worth retrying as evaluate().
+            if (strpos($e->getMessage(), 'No method with name eval') === false) {
+                throw $e;
+            }
             return (int) $this->redis->evaluate($script, [$this->config['namespace'] . $mask]);
         }
     }
