@@ -21,6 +21,9 @@ final class FakeCache implements CacheInterface
     /** @var int */
     public $getCalls = 0;
 
+    /** @var int */
+    public $maskDeletes = 0;
+
     /** @var array key sets of every mget, in order */
     public $mgetKeys = [];
 
@@ -64,14 +67,21 @@ final class FakeCache implements CacheInterface
         return true;
     }
 
-    public function deleteCache($key)
+    public function deleteCache($keys)
     {
-        unset($this->store[$key]);
-        return 1;
+        $deleted = 0;
+        foreach ((array) $keys as $key) {
+            if (isset($this->store[$key])) {
+                $deleted++;
+            }
+            unset($this->store[$key]);
+        }
+        return $deleted;
     }
 
     public function deleteByMask($mask)
     {
+        $this->maskDeletes++;
         $deleted = 0;
         foreach (array_keys($this->store) as $key) {
             if (str_starts_with($key, $mask)) {

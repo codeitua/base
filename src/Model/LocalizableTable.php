@@ -26,6 +26,13 @@ abstract class LocalizableTable extends CachedTable
      */
     protected $localFields = [];
     /**
+     * Language ids this table is translated into. Declaring them turns every
+     * row invalidation into one delete instead of a scan over the keyspace.
+     *
+     * @var array
+     */
+    protected $languages = [];
+    /**
      * LocalizableTable constructor .
      * @param string $table
      */
@@ -179,7 +186,20 @@ abstract class LocalizableTable extends CachedTable
     */
     public function cacheDelete($key)
     {
-        parent::cacheDeleteByMask($key);
+        // A row is cached once per language, so deleting it means deleting a
+        // small known set of keys. When the languages are declared, name them
+        // and delete in one command; the mask is the fallback, and it has to
+        // carry the separator or 'news.1' would also take 'news.10' with it.
+        if ($this->languages) {
+            $keys = [$this->cacheKey($key)];
+            foreach ($this->languages as $lang) {
+                $keys[] = $this->cacheKey($key . '.' . $lang);
+            }
+            self::$cache->deleteCache($keys);
+            return true;
+        }
+        parent::cacheDeleteByMask($key . '.');
+        self::$cache->deleteCache($this->cacheKey($key));
         return true;
     }
     /**
@@ -275,10 +295,10 @@ abstract class LocalizableTable extends CachedTable
                 $fields[] = $key;
             }
             $this->query('replace into `' . $this->locTable . '` (' . implode(', ', $fields) . ') values (' . implode(', ', $tValues) . ')', $data);
-            $this->cacheDelete(base64_encode($this->name) . '.' . $lang);
         }
         $this->cacheDelete($this->id);
         if (!empty($this->name)) {
+            // Covers every language of the slug, so the loop above need not.
             $this->cacheDelete(base64_encode($this->name));
         }
         // Localized values are written with raw SQL, past update()

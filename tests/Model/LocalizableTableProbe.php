@@ -40,6 +40,11 @@ class LocalizableTableProbe extends LocalizableTable
         self::$findGenerations = [];
     }
 
+    public function useLanguages(array $languages): void
+    {
+        $this->languages = $languages;
+    }
+
     public function useLanguage($lang): void
     {
         $this->lang = $lang;

@@ -66,6 +66,41 @@ final class LocalizableTableTest extends TestCase
         self::assertSame(2, $table->findSimpleCalls);
     }
 
+    public function testDeletingARowDoesNotTakeItsNumericNeighboursWithIt(): void
+    {
+        $table = $this->table();
+        foreach (['table.news.1', 'table.news.1.1', 'table.news.1.2',
+                  'table.news.10', 'table.news.10.1', 'table.news.123.2'] as $key) {
+            $this->cache->store[$key] = 'cached';
+        }
+
+        $table->cacheDelete(1);
+
+        self::assertArrayNotHasKey('table.news.1', $this->cache->store);
+        self::assertArrayNotHasKey('table.news.1.1', $this->cache->store);
+        self::assertArrayNotHasKey('table.news.1.2', $this->cache->store);
+        self::assertArrayHasKey('table.news.10', $this->cache->store, 'Row 10 is not row 1.');
+        self::assertArrayHasKey('table.news.10.1', $this->cache->store);
+        self::assertArrayHasKey('table.news.123.2', $this->cache->store);
+    }
+
+    public function testDeclaredLanguagesMakeInvalidationOneExactDelete(): void
+    {
+        $table = $this->table();
+        $table->useLanguages([1, 2, 3, 4]);
+        foreach (['table.news.7', 'table.news.7.1', 'table.news.7.4'] as $key) {
+            $this->cache->store[$key] = 'cached';
+        }
+        $this->cache->maskDeletes = 0;
+
+        $table->cacheDelete(7);
+
+        self::assertSame(0, $this->cache->maskDeletes, 'Declared languages must not scan the keyspace.');
+        self::assertArrayNotHasKey('table.news.7', $this->cache->store);
+        self::assertArrayNotHasKey('table.news.7.1', $this->cache->store);
+        self::assertArrayNotHasKey('table.news.7.4', $this->cache->store);
+    }
+
     public function testActiveLanguageComesFromTheRegistry(): void
     {
         Registry::set('lang', '3');
