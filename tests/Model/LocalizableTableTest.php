@@ -101,6 +101,19 @@ final class LocalizableTableTest extends TestCase
         self::assertArrayNotHasKey('table.news.7.4', $this->cache->store);
     }
 
+    public function testEditingALocalizedRowIsVisibleWithinTheSameRequest(): void
+    {
+        $table = $this->table();
+        $table->useLanguage(2);
+        self::assertSame('Перший', $table->get(1)->name);
+
+        // A localized write goes through this override, not CachedTable's.
+        $table->rows[1][2]['name'] = 'Змінений';
+        $table->cacheDelete(1);
+
+        self::assertSame('Змінений', $table->get(1)->name, 'The remembered row must not survive the write.');
+    }
+
     public function testActiveLanguageComesFromTheRegistry(): void
     {
         Registry::set('lang', '3');

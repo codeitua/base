@@ -41,7 +41,26 @@ class Redis implements CacheInterface
         } else {
             $this->redis->setOption(\Redis::OPT_PREFIX, $this->config['namespace']);
         }
+        // Rows are objects, so something has to serialize them. Applications that
+        // configured a serializer on the connection keep it; the rest get the best
+        // one this build offers instead of storing "Object".
+        if (!$this->redis->getOption(\Redis::OPT_SERIALIZER)) {
+            $this->redis->setOption(\Redis::OPT_SERIALIZER, self::bestSerializer());
+        }
         $this->connected = true;
+    }
+    /**
+    * The fastest serializer this phpredis build actually has.
+    *
+    * igbinary is smaller and quicker but is a compile time option, so naming the
+    * constant directly is a fatal error on a build without it. Use this instead
+    * of hardcoding Redis::SERIALIZER_IGBINARY in application config.
+    *
+    * @return int
+    */
+    public static function bestSerializer()
+    {
+        return defined('Redis::SERIALIZER_IGBINARY') ? \Redis::SERIALIZER_IGBINARY : \Redis::SERIALIZER_PHP;
     }
     /**
     * assigns a value to a specified param

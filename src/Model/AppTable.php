@@ -444,7 +444,10 @@ abstract class AppTable extends TableGateway
     */
     public function getId()
     {
-        return $this->{static::ID_COLUMN};
+        $column = static::ID_COLUMN;
+        // A model that declares its own id column keeps using it. One that does
+        // not would otherwise read a dynamic property, deprecated since PHP 8.2.
+        return property_exists($this, $column) ? $this->{$column} : $this->id;
     }
     /**
     * Sets Id. Checks whether entry exists.
@@ -454,7 +457,11 @@ abstract class AppTable extends TableGateway
     */
     public function setId($id)
     {
-        $this->{static::ID_COLUMN} = $id;
+        $column = static::ID_COLUMN;
+        if (property_exists($this, $column)) {
+            $this->{$column} = $id;
+        }
+        $this->id = $id;
         $item = $this->get($id);
         foreach ($item as $field => $value) {
             if (property_exists($this, $field)) {

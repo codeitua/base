@@ -59,6 +59,13 @@ class CachedTable extends AppTable
      */
     protected $localRowCache = true;
     /**
+     * Prefix every key of this table carries. Shortening it saves the same number
+     * of bytes on every key, at the cost of orphaning what is already cached.
+     *
+     * @var string
+     */
+    protected $cachePrefix = 'table.';
+    /**
      * Creates table and sets id if necessary
      *
      * @param string $tableName
@@ -167,7 +174,7 @@ class CachedTable extends AppTable
      */
     protected function cacheKey($key)
     {
-        return 'table.' . $this->table . '.' . $key;
+        return $this->cachePrefix . $this->table . '.' . $key;
     }
     /**
      * Cache key holding one hydrated row. Overridden where rows are cached per
@@ -234,15 +241,27 @@ class CachedTable extends AppTable
      */
     public function cacheDelete($key)
     {
-        unset(self::$localRows[$this->cacheKey($key)]);
-        // A localized row is remembered per language, so drop those as well.
-        $prefix = $this->cacheKey($key) . '.';
+        $this->forgetLocalRow($key);
+        return self::$cache->deleteCache($this->cacheKey($key));
+    }
+    /**
+     * Drops a row, and its per-language copies, from what this request remembers.
+     *
+     * Every override of cacheDelete() has to call this, or the identity map keeps
+     * serving what the cache no longer holds.
+     *
+     * @param string $key table scoped key part
+     */
+    protected function forgetLocalRow($key)
+    {
+        $full = $this->cacheKey($key);
+        unset(self::$localRows[$full]);
+        $prefix = $full . '.';
         foreach (array_keys(self::$localRows) as $remembered) {
             if (strpos($remembered, $prefix) === 0) {
                 unset(self::$localRows[$remembered]);
             }
         }
-        return self::$cache->deleteCache($this->cacheKey($key));
     }
     /**
      * Deletes cached values with keys that start with name
@@ -251,6 +270,7 @@ class CachedTable extends AppTable
      */
     public function cacheDeleteByMask($keyMask)
     {
+        $this->forgetLocalRow($keyMask);
         self::$cache->deleteByMask($this->cacheKey($keyMask));
     }
     /**

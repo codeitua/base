@@ -475,6 +475,31 @@ function main(array $options): int
     $report->run('unserialize one row', static fn() => unserialize($payload));
     $report->run('buildFindCacheKey()', static fn() => $cached->benchmarkFindKey());
 
+    // Serializer and payload shape are the things people reach for first. The
+    // numbers are here so the decision is made against a round trip, not a guess.
+    $row = unserialize($payload);
+    $asArray = (array) $row;
+    $report->run('serialize row, php', static fn() => serialize($row));
+    if (function_exists('igbinary_serialize')) {
+        $report->run('serialize row, igbinary', static fn() => igbinary_serialize($row));
+    }
+    $report->run('serialize row as plain array', static fn() => serialize($asArray));
+    $report->run(
+        'rehydrate a plain array row',
+        static fn() => new \ArrayObject(unserialize(serialize($asArray)), \ArrayObject::ARRAY_AS_PROPS),
+    );
+
+    printf(
+        '%spayload: ArrayObject %d bytes, plain array %d bytes%s%s',
+        PHP_EOL,
+        strlen(serialize($row)),
+        strlen(serialize($asArray)),
+        function_exists('igbinary_serialize')
+            ? ', igbinary ' . strlen(igbinary_serialize($row)) . ' bytes'
+            : '',
+        PHP_EOL,
+    );
+
     $report->render($rows, strlen($payload));
     $redis->flushDB();
 

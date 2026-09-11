@@ -190,6 +190,9 @@ abstract class LocalizableTable extends CachedTable
         // small known set of keys. When the languages are declared, name them
         // and delete in one command; the mask is the fallback, and it has to
         // carry the separator or 'news.1' would also take 'news.10' with it.
+        // This override never reaches CachedTable::cacheDelete(), so the rows this
+        // request remembers have to be dropped here.
+        $this->forgetLocalRow($key);
         if ($this->languages) {
             $keys = [$this->cacheKey($key)];
             foreach ($this->languages as $lang) {
