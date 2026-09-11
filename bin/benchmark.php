@@ -147,9 +147,11 @@ class BenchmarkTable extends CachedTable
     }
 
     /** Simulates a fresh request, where nothing is memoized yet. */
-    public static function forgetGenerations(): void
+    /** Starts a scenario as a fresh request would: nothing memoized. */
+    public static function freshRequest(): void
     {
         self::$findGenerations = [];
+        self::$localRows = [];
     }
 
     public static function cache(): CacheInterface
@@ -344,24 +346,34 @@ function main(array $options): int
     $report->section('warm reads');
     $table = BenchmarkTable::make('bench', $rows);
     $table->warmRows();
-    $report->run('get() warm row', static fn() => $table->get(1));
+    $report->run(
+        'get() warm row',
+        static fn() => $table->get(1),
+        null,
+        static fn() => BenchmarkTable::freshRequest(),
+    );
+    $report->run('get() warm row, read twice', static function () use ($table): void {
+        $table->get(1);
+        $table->get(1);
+    }, null, static fn() => BenchmarkTable::freshRequest());
 
+    $fresh = static fn() => BenchmarkTable::freshRequest();
     $ten = range(1, min(10, $rows));
-    $report->run('mget() warm, ' . count($ten) . ' rows', static fn() => $table->mget($ten));
+    $report->run('mget() warm, ' . count($ten) . ' rows', static fn() => $table->mget($ten), null, $fresh);
 
     $all = range(1, $rows);
-    $report->run('mget() warm, ' . $rows . ' rows', static fn() => $table->mget($all));
+    $report->run('mget() warm, ' . $rows . ' rows', static fn() => $table->mget($all), null, $fresh);
 
     $cached = BenchmarkTable::make('bench', $rows, 300);
     $cached->warmRows();
     $cached->find([['enabled', '=', 1]]);
-    $report->run('find() warm, cached ids', static fn() => $cached->find([['enabled', '=', 1]]));
-    $report->run('find() warm, uncached ids', static fn() => $table->find([['enabled', '=', 1]]));
+    $report->run('find() warm, cached ids', static fn() => $cached->find([['enabled', '=', 1]]), null, $fresh);
+    $report->run('find() warm, uncached ids', static fn() => $table->find([['enabled', '=', 1]]), null, $fresh);
     $report->run(
         'find() warm, first of a request',
         static fn() => $cached->find([['enabled', '=', 1]]),
         null,
-        static fn() => BenchmarkTable::forgetGenerations(),
+        static fn() => BenchmarkTable::freshRequest(),
     );
 
     if (isset($options['dsn'])) {
@@ -384,7 +396,7 @@ function main(array $options): int
         foreach ($tables as $one) {
             $one->find([['enabled', '=', 1]]);
         }
-    });
+    }, null, $fresh);
     $report->run('5 find() calls, deferred', static function () use ($tables): void {
         $loader = new BatchLoader(BenchmarkTable::cache());
         $handles = [];
@@ -394,7 +406,7 @@ function main(array $options): int
         foreach ($handles as $handle) {
             $handle->rows();
         }
-    });
+    }, null, $fresh);
 
     $report->section('cold reads, where a deploy or a Redis restart lands'
         . (isset($options['dsn']) ? ', one real query per load' : ', no database'));
@@ -402,13 +414,17 @@ function main(array $options): int
         'get() one cold row',
         static fn() => $table->get(1),
         null,
-        static fn() => $table->cacheDelete(1),
+        static function () use ($table): void {
+            BenchmarkTable::freshRequest();
+            $table->cacheDelete(1);
+        },
     );
     $report->run(
         'mget() ' . $rows . ' cold, per row',
         static fn() => $table->mget($all),
         max(20, (int) ($cycles / 20)),
         static function () use ($table, $rows): void {
+            BenchmarkTable::freshRequest();
             for ($id = 1; $id <= $rows; $id++) {
                 $table->cacheDelete($id);
             }
@@ -421,6 +437,7 @@ function main(array $options): int
         static fn() => $batched->mget($all),
         max(20, (int) ($cycles / 20)),
         static function () use ($batched, $rows): void {
+            BenchmarkTable::freshRequest();
             for ($id = 1; $id <= $rows; $id++) {
                 $batched->cacheDelete($id);
             }

@@ -42,6 +42,23 @@ class CachedTable extends AppTable
      */
     protected $rebuildLockTtl = 3000;
     /**
+     * Rows already read in this request, keyed by their cache key.
+     *
+     * A page asks for the same row repeatedly, once per product for its
+     * category and so on, and every one of those was a round trip. Cleared by
+     * every write, and shared for the life of the process, which under php-fpm
+     * is one request. A long running worker must call forgetLocalRows().
+     *
+     * @var array
+     */
+    protected static $localRows = [];
+    /**
+     * Whether reads are remembered for the rest of the request
+     *
+     * @var bool
+     */
+    protected $localRowCache = true;
+    /**
      * Creates table and sets id if necessary
      *
      * @param string $tableName
@@ -64,7 +81,10 @@ class CachedTable extends AppTable
     public function get($id, $publicOnly = false)
     {
         $key = $this->itemCacheKeyPart($id);
-        $row = $this->cacheGet($key);
+        $row = $this->localRow($id);
+        if (!$row) {
+            $row = $this->cacheGet($key);
+        }
         if (!$row) {
             // One command, released by expiry. Losing the race never blocks and
             // never holds a database connection: look once more, then rebuild
@@ -77,10 +97,41 @@ class CachedTable extends AppTable
                 $this->cacheSet($key, $row);
             }
         }
+        $this->rememberRow($id, $row);
         if ($publicOnly) {
             $row = $this->removePrivateFields($row);
         }
         return $row;
+    }
+    /**
+     * A row already read in this request, or null
+     *
+     * @param int|string $id
+     * @return \ArrayObject|null
+     */
+    protected function localRow($id)
+    {
+        return $this->localRowCache ? (self::$localRows[$this->itemCacheKey($id)] ?? null) : null;
+    }
+    /**
+     * @param int|string $id
+     * @param \ArrayObject $row
+     */
+    protected function rememberRow($id, $row)
+    {
+        if ($this->localRowCache && $row) {
+            self::$localRows[$this->itemCacheKey($id)] = $row;
+        }
+    }
+    /**
+     * Forgets rows remembered for this request.
+     *
+     * Call it between requests in a worker that keeps the process alive, such as
+     * RoadRunner or Swoole; php-fpm resets statics on its own.
+     */
+    public static function forgetLocalRows()
+    {
+        self::$localRows = [];
     }
     /**
      * Marks this process as the one rebuilding a row, in a single cache command.
@@ -183,6 +234,14 @@ class CachedTable extends AppTable
      */
     public function cacheDelete($key)
     {
+        unset(self::$localRows[$this->cacheKey($key)]);
+        // A localized row is remembered per language, so drop those as well.
+        $prefix = $this->cacheKey($key) . '.';
+        foreach (array_keys(self::$localRows) as $remembered) {
+            if (strpos($remembered, $prefix) === 0) {
+                unset(self::$localRows[$remembered]);
+            }
+        }
         return self::$cache->deleteCache($this->cacheKey($key));
     }
     /**
@@ -210,20 +269,33 @@ class CachedTable extends AppTable
         if (!$ids) {
             return [];
         }
-        $values = self::$cache->mget(array_map([$this, 'itemCacheKey'], $ids));
+        $wanted = [];
+        $result = [];
+        foreach ($ids as $id) {
+            $row = $this->localRow($id);
+            $result[$id] = $row;
+            if (!$row) {
+                $wanted[$id] = $this->itemCacheKey($id);
+            }
+        }
+
+        $values = $wanted ? self::$cache->mget(array_values($wanted)) : [];
         if (!is_array($values)) {
             $values = [];
         }
+        $values = array_combine(array_keys($wanted), array_pad($values, count($wanted), false));
 
-        $result = [];
         $missing = [];
-        foreach ($ids as $num => $id) {
-            if (!empty($values[$num])) {
-                $result[$id] = $values[$num];
+        foreach ($ids as $id) {
+            if ($result[$id]) {
                 continue;
             }
-            // Hold the position so the caller keeps the order it asked for.
-            $result[$id] = null;
+            if (!empty($values[$id])) {
+                $result[$id] = $values[$id];
+                $this->rememberRow($id, $values[$id]);
+                continue;
+            }
+            // The position is already held, so the caller keeps its order.
             $missing[] = $id;
         }
 
@@ -232,6 +304,7 @@ class CachedTable extends AppTable
             foreach ($missing as $id) {
                 if (isset($loaded[$id])) {
                     $result[$id] = $loaded[$id];
+                    $this->rememberRow($id, $loaded[$id]);
                 } else {
                     // The row was removed between the id lookup and this fetch.
                     unset($result[$id]);

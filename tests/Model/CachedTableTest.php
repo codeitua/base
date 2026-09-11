@@ -159,6 +159,7 @@ final class CachedTableTest extends TestCase
         $this->cache->mgetCalls = 0;
         $this->cache->getCalls = 0;
         CachedTableProbe::forgetGenerations();        // a fresh request
+        CachedTableProbe::forgetLocalRows();
 
         $table->find([['enabled', '=', 1]]);
 
@@ -178,6 +179,47 @@ final class CachedTableTest extends TestCase
         $table->find([['enabled', '=', 1]]);
 
         self::assertSame(2, $table->findSimpleCalls, 'The stale entry must not be served.');
+    }
+
+    public function testARowReadTwiceInOneRequestIsFetchedOnce(): void
+    {
+        $table = $this->table();
+        $this->cache->store['table.news.1'] = new \ArrayObject($table->rows[1], \ArrayObject::ARRAY_AS_PROPS);
+        $this->cache->getCalls = 0;
+
+        $first = $table->get(1);
+        $second = $table->get(1);
+
+        self::assertSame(1, $this->cache->getCalls, 'The second read must not reach the cache.');
+        self::assertSame($first, $second);
+    }
+
+    public function testWritingARowForgetsWhatTheRequestRemembered(): void
+    {
+        $table = $this->table();
+        $this->cache->store['table.news.1'] = new \ArrayObject($table->rows[1], \ArrayObject::ARRAY_AS_PROPS);
+        $table->get(1);
+
+        $table->rows[1]['name'] = 'Edited';
+        $table->cacheDelete(1);
+
+        self::assertSame('Edited', $table->get(1)->name);
+    }
+
+    public function testABatchedReadOnlyAsksForRowsItDoesNotAlreadyHave(): void
+    {
+        $table = $this->table();
+        foreach ($table->rows as $id => $row) {
+            $this->cache->store['table.news.' . $id] = new \ArrayObject($row, \ArrayObject::ARRAY_AS_PROPS);
+        }
+        $table->get(2);
+        $this->cache->mgetKeys = [];
+        $this->cache->mgetCalls = 0;
+
+        $rows = $table->mget([1, 2, 3]);
+
+        self::assertSame([1, 2, 3], array_keys($rows));
+        self::assertSame(['table.news.1', 'table.news.3'], $this->cache->mgetKeys[0]);
     }
 
     public function testGetListCachesIdsAndHydratesThroughOneBatchedRead(): void

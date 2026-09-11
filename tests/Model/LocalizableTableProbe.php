@@ -38,6 +38,7 @@ class LocalizableTableProbe extends LocalizableTable
     {
         self::$cache = $cache;
         self::$findGenerations = [];
+        self::$localRows = [];
     }
 
     public function useLanguages(array $languages): void

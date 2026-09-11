@@ -46,6 +46,7 @@ class CachedTableProbe extends CachedTable
     {
         self::$cache = $cache;
         self::$findGenerations = [];
+        self::$localRows = [];
     }
 
     public function usePrivateFields(array $fields): void
