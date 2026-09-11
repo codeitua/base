@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace CodeIT\BaseTest\Model;
 
+use CodeIT\Cache\CacheInterface;
+
 /**
  * In-memory stand-in for CodeIT\Cache\Redis that counts the requests a model
  * makes, so tests can assert reads are batched.
  */
-final class FakeCache
+final class FakeCache implements CacheInterface
 {
     /** @var array */
     public $store = [];

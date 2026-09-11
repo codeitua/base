@@ -38,6 +38,14 @@
   implements the single command lock; `Memcache` provides both through `add()`.
 - `itemCacheKeyPart()` and `prepareCachedRow()` replace the `itemCacheKey()` override, so the batched
   path caches rows in the same shape and under the same keys as `get()`.
+- Added `CodeIT\Cache\CacheInterface`, implemented by `Redis` and `Memcache`, and typed
+  `CachedTable::$cache` against it, which removed the capability checks around the batched and
+  locking calls. A custom cache class now has to implement it; see UPGRADE.md.
+- Added `CodeIT\Cache\BatchLoader` and `Deferred` with `CachedTable::deferMget()` and `deferFind()`,
+  so reads registered together are served together. Five warm lists cost 10 cache commands and
+  6.04 ms one at a time, and 2 commands and 1.66 ms deferred.
+- `Memcache::deleteByMask()` throws instead of silently doing nothing, because memcached cannot
+  enumerate keys and `LocalizableTable` needs a Redis cache.
 - Added `bin/benchmark.php` (`composer bench`), which measures the model layer over thousands of
   cycles and reports mean/p50/p95/p99 next to the number of cache commands each operation costs.
 - Added `AGENTS.md` and `docs/reference.md`.

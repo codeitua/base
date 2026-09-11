@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace CodeIT\Cache;
 
-class Redis
+class Redis implements CacheInterface
 {
     /**
      * @var CodeIT\Cache\RedisWrapper

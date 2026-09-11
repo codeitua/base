@@ -157,3 +157,39 @@ library costs: on a loopback Redis a round trip is ~0.6 ms while unserialising a
 0.0016 ms. Optimise the command count, never the PHP. Read p99 rather than the mean — a lock or a
 stampede shows in the tail first. The `--dsn` form adds the lock comparison; the Redis database is
 flushed, so point it at a scratch index.
+
+## Deferred reads
+
+Reads registered with a `BatchLoader` are served together instead of one round trip each. Measured
+over 2000 cycles, five warm lists cost 10 cache commands and 6.04 ms one at a time, and 2 commands
+and 1.66 ms deferred.
+
+```php
+$loader = new BatchLoader($cache);
+$news = $newsTable->deferFind($loader, [['enabled', '=', 1]], 3, 0, 'added desc');
+$shop = $shopTable->deferFind($loader, [['enabled', '=', 1]], 4);
+$rows = $news->rows();   // one request for both ID lists, one for all rows
+```
+
+Nothing is fetched until a handle is read, and reading any handle resolves them all. `deferMget()`
+does the same for known ids. A `find()` without `findCacheTtl` still runs its own ID query when the
+handle is read: SQL cannot be batched across tables without an event loop, and this library stays
+blocking on purpose.
+
+Do not hold a loader across requests, and do not register a read whose result decides whether you
+register another — that needs two loaders.
+
+## Locking
+
+Two different things are called locking here, and only one of them is about correctness.
+
+- **`AppTable::getLock()` / `releaseLock()`** is the application mutex, alongside
+  `startTransaction()` / `commit()` / `rollback()`. Use it around writes. Nothing in the cache layer
+  touches it.
+- **`CachedTable`'s rebuild guard** only stops several processes rebuilding the same cache entry at
+  once. It is one `SET NX PX` released by expiry, it never blocks, and losing it just means reading
+  the row again. It is on by default (`$rebuildLockTtl = 3000` ms); `0` turns it off.
+
+The rebuild guard is not a consistency mechanism: a writer can always land between another process's
+`getUncached()` and its `cacheSet()`, with or without it. Cache coherency comes from invalidating on
+write, which `set()`, `update()`, `delete()` and `deleteById()` do.

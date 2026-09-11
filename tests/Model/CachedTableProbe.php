@@ -27,6 +27,9 @@ class CachedTableProbe extends CachedTable
     /** @var int */
     public $getUncachedCalls = 0;
 
+    /** @var int */
+    public $getUncachedManyCalls = 0;
+
     /** @var array ids passed to delete() */
     public $deleted = [];
 
@@ -68,6 +71,12 @@ class CachedTableProbe extends CachedTable
         $resultSet = new ResultSet();
         $resultSet->initialize($rows);
         return $resultSet;
+    }
+
+    public function getUncachedMany(array $ids)
+    {
+        $this->getUncachedManyCalls++;
+        return parent::getUncachedMany($ids);
     }
 
     public function getUncached($id)

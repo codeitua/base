@@ -4,16 +4,19 @@ declare(strict_types=1);
 
 namespace CodeIT\Model;
 
+use CodeIT\Cache\BatchLoader;
+use CodeIT\Cache\CacheInterface;
+use CodeIT\Cache\Deferred;
 use CodeIT\Utils\Registry;
 use Laminas\Db\ResultSet\ResultSet;
 class CachedTable extends AppTable
 {
     /**
-     * Cache backend, normally a CodeIT\Cache\Redis instance
+     * Cache backend
      *
-     * @var object
+     * @var CacheInterface
      */
-    protected static $cache = null;
+    protected static ?CacheInterface $cache = null;
     /**
      * Generation token per table, memoized for the current request
      *
@@ -78,28 +81,17 @@ class CachedTable extends AppTable
         return $row;
     }
     /**
-     * Returns unique lock name for record id
-     *
-     * @param int $id
-     * @return string
-     */
-    private function getLockName($id)
-    {
-        return SITE_NAME . '.' . $this->table . '.' . $id;
-    }
-    /**
      * Marks this process as the one rebuilding a row, in a single cache command.
      *
-     * Returns true when nobody else is rebuilding, and true as well when the cache
-     * backend cannot lock at all, so an application with a custom cache keeps
-     * working exactly as before.
+     * Returns true when nobody else is rebuilding, and when the guard is switched
+     * off with $rebuildLockTtl = 0.
      *
      * @param int|string $id
      * @return bool
      */
     protected function acquireRebuildLock($id)
     {
-        if (!$this->rebuildLockTtl || !is_callable([self::$cache, 'acquireLock'])) {
+        if (!$this->rebuildLockTtl) {
             return true;
         }
         return (bool) self::$cache->acquireLock($this->cacheKey('lock.' . $id), $this->rebuildLockTtl);
@@ -297,8 +289,7 @@ class CachedTable extends AppTable
         return $rows;
     }
     /**
-     * Writes several rows in one batch, falling back to one call each when the
-     * cache backend cannot do it
+     * Writes several rows in one batch
      *
      * @param array<string, mixed> $pairs key part => value
      * @param int $timeout
@@ -308,17 +299,145 @@ class CachedTable extends AppTable
         if (!$pairs) {
             return;
         }
-        if (is_callable([self::$cache, 'setMany'])) {
-            $prefixed = [];
-            foreach ($pairs as $key => $value) {
-                $prefixed[$this->cacheKey($key)] = $value;
-            }
-            self::$cache->setMany($prefixed, $timeout);
-            return;
-        }
+        $prefixed = [];
         foreach ($pairs as $key => $value) {
-            $this->cacheSet($key, $value, $timeout);
+            $prefixed[$this->cacheKey($key)] = $value;
         }
+        self::$cache->setMany($prefixed, $timeout);
+    }
+    /**
+     * Registers a batched read of these ids with a loader, instead of reading now.
+     *
+     * Nothing is fetched until the returned handle is read, and by then every
+     * other read registered with the same loader is served in the same commands.
+     *
+     * @param BatchLoader $loader
+     * @param array $ids
+     * @param bool $publicOnly
+     * @return Deferred
+     */
+    public function deferMget(BatchLoader $loader, array $ids, $publicOnly = false)
+    {
+        $ids = array_values($ids);
+        $served = [];
+
+        return $loader->defer(
+            function () use ($ids, &$served) {
+                return $served ? [] : array_map([$this, 'itemCacheKey'], $ids);
+            },
+            function (array $byKey) use ($ids, &$served): void {
+                foreach ($ids as $id) {
+                    $key = $this->itemCacheKey($id);
+                    if (!empty($byKey[$key])) {
+                        $served[$id] = $byKey[$key];
+                    }
+                }
+            },
+            function () use ($ids, &$served, $publicOnly) {
+                return [$this->completeBatch($ids, $served, $publicOnly), null];
+            },
+        );
+    }
+    /**
+     * Registers a batched find() with a loader.
+     *
+     * With findCacheTtl set this costs no round trip of its own: the ID list is
+     * read in the loader's first batch and the rows in its second. Without it the
+     * ID query still runs when the handle is read, because SQL cannot be batched
+     * across tables without an event loop.
+     *
+     * @param BatchLoader $loader
+     * @param array $params
+     * @param int $limit
+     * @param int $offset
+     * @param string|bool|false $orderBy
+     * @param bool $withTotal
+     * @param bool $publicOnly
+     * @return Deferred
+     */
+    public function deferFind(
+        BatchLoader $loader,
+        $params,
+        $limit = 0,
+        $offset = 0,
+        $orderBy = false,
+        $withTotal = false,
+        $publicOnly = false
+    ) {
+        $ids = null;
+        $total = $withTotal ? 0 : null;
+        $served = [];
+        $round = 0;
+
+        return $loader->defer(
+            function () use ($params, $limit, $offset, $orderBy, $withTotal, &$ids, &$round) {
+                $round++;
+                if ($round === 1) {
+                    if (!$this->findCacheTtl) {
+                        return [];
+                    }
+                    return [$this->cacheKey(
+                        $this->buildFindCacheKey($params, $limit, $offset, $orderBy, $withTotal)
+                    )];
+                }
+                if ($ids === null) {
+                    return [];
+                }
+                return array_map([$this, 'itemCacheKey'], $ids);
+            },
+            function (array $byKey) use ($params, $limit, $offset, $orderBy, $withTotal, &$ids, &$total, &$served): void {
+                if ($ids === null) {
+                    $key = $this->findCacheTtl
+                        ? $this->cacheKey($this->buildFindCacheKey($params, $limit, $offset, $orderBy, $withTotal))
+                        : null;
+                    $cached = $key !== null ? ($byKey[$key] ?? false) : false;
+                    if (is_array($cached) && array_key_exists('ids', $cached)) {
+                        $ids = $cached['ids'];
+                        $total = $cached['total'];
+                    } else {
+                        $ids = $this->findIds($params, $limit, $offset, $orderBy, $total);
+                    }
+                    return;
+                }
+                foreach ($ids as $id) {
+                    $key = $this->itemCacheKey($id);
+                    if (!empty($byKey[$key])) {
+                        $served[$id] = $byKey[$key];
+                    }
+                }
+            },
+            function () use (&$ids, &$total, &$served, $publicOnly) {
+                return [$this->completeBatch($ids ?? [], $served, $publicOnly), $total];
+            },
+        );
+    }
+    /**
+     * Fills the gaps a batched read left, in the order the caller asked for
+     *
+     * @param array $ids
+     * @param array $served rows the cache already handed over, keyed by id
+     * @param bool $publicOnly
+     * @return array<int|string, mixed>
+     */
+    private function completeBatch(array $ids, array $served, $publicOnly)
+    {
+        $missing = [];
+        foreach ($ids as $id) {
+            if (!isset($served[$id])) {
+                $missing[] = $id;
+            }
+        }
+        if ($missing) {
+            $served += $this->loadRows($missing);
+        }
+
+        $result = [];
+        foreach ($ids as $id) {
+            if (isset($served[$id])) {
+                $result[$id] = $publicOnly ? $this->removePrivateFields($served[$id]) : $served[$id];
+            }
+        }
+        return $result;
     }
     /**
     * Inserts a record

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace CodeIT\Cache;
 
-class Memcache
+class Memcache implements CacheInterface
 {
     /**
      * @var \Memcache
@@ -160,6 +160,19 @@ class Memcache
             return true;
         }
         return (bool) $this->memc->add($this->namespace . '.' . $key, 1, 0, max(1, (int) ceil($ttl / 1000)));
+    }
+    /**
+    * memcached cannot enumerate keys, so a mask delete is impossible rather than
+    * merely unsupported. Failing loudly beats silently serving stale rows.
+    *
+    * @param string $mask
+    * @throws \RuntimeException
+    */
+    public function deleteByMask($mask)
+    {
+        throw new \RuntimeException(
+            'CodeIT\\Cache\\Memcache cannot delete by mask; LocalizableTable needs a Redis cache.'
+        );
     }
     public function deleteCache($name)
     {

@@ -22,6 +22,8 @@ declare(strict_types=1);
 
 namespace CodeIT\Benchmark;
 
+use CodeIT\Cache\BatchLoader;
+use CodeIT\Cache\CacheInterface;
 use CodeIT\Model\CachedTable;
 use Laminas\Db\ResultSet\ResultSet;
 use PDO;
@@ -41,7 +43,7 @@ if ($autoload === null) {
 require $autoload;
 
 /** Counts the commands each scenario really issues, which is what the cost is made of. */
-final class BenchmarkCache
+final class BenchmarkCache implements CacheInterface
 {
     public int $commands = 0;
 
@@ -142,6 +144,11 @@ class BenchmarkTable extends CachedTable
     public static function commandCount(): int
     {
         return self::$cache->commands;
+    }
+
+    public static function cache(): CacheInterface
+    {
+        return self::$cache;
     }
 
     public function warmRows(): void
@@ -353,6 +360,29 @@ function main(array $options): int
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION],
         ));
     }
+
+    $report->section('five warm lists, the shape of a home page');
+    $tables = [];
+    foreach (['a', 'b', 'c', 'd', 'e'] as $name) {
+        $tables[$name] = BenchmarkTable::make('bench' . $name, 10, 300);
+        $tables[$name]->warmRows();
+        $tables[$name]->find([['enabled', '=', 1]]);
+    }
+    $report->run('5 find() calls, one at a time', static function () use ($tables): void {
+        foreach ($tables as $one) {
+            $one->find([['enabled', '=', 1]]);
+        }
+    });
+    $report->run('5 find() calls, deferred', static function () use ($tables): void {
+        $loader = new BatchLoader(BenchmarkTable::cache());
+        $handles = [];
+        foreach ($tables as $one) {
+            $handles[] = $one->deferFind($loader, [['enabled', '=', 1]]);
+        }
+        foreach ($handles as $handle) {
+            $handle->rows();
+        }
+    });
 
     $report->section('cold reads, where a deploy or a Redis restart lands'
         . (isset($options['dsn']) ? ', one real query per load' : ', no database'));
