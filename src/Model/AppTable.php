@@ -67,7 +67,7 @@ abstract class AppTable extends TableGateway
      * @param mixed $databaseSchema
      * @param ResultSet $selectResultPrototype
      */
-    public function __construct($tableName, $id = null, $databaseSchema = null, ResultSet $selectResultPrototype = null)
+    public function __construct($tableName, $id = null, $databaseSchema = null, ?ResultSet $selectResultPrototype = null)
     {
         parent::__construct($tableName, $this->getAdapter(), $databaseSchema, $selectResultPrototype);
         if ($id) {
@@ -553,7 +553,7 @@ abstract class AppTable extends TableGateway
     * @param null|array $joins
     * @return int affected rows
     */
-    public function update($params, $where = null, array $joins = null)
+    public function update($params, $where = null, ?array $joins = null)
     {
         $params = $this->removeUnnecessaryFields($params);
         if (empty($params)) {

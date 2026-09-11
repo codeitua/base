@@ -14,3 +14,12 @@ Thumbs.db
 
 # composer vendor dir
 /vendor
+
+# composer binary
+/composer.phar
+
+# phpunit
+/.phpunit.result.cache
+
+# library: lock file is not committed
+/composer.lock

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace CodeIT\Cache;
 
-class Redis
+class Redis implements CacheInterface
 {
     /**
      * @var CodeIT\Cache\RedisWrapper
@@ -114,6 +114,48 @@ class Redis
         return $ret;
     }
     /**
+    * Writes several keys in one pipeline, so a batch of rows costs one round
+    * trip instead of one per row
+    *
+    * @param array $pairs key => value
+    * @param int $ttl TTL in seconds, 0 to keep until deleted
+    * @return bool
+    */
+    public function setMany($pairs, $ttl = 0)
+    {
+        if (!$this->config['enabled'] || !$pairs) {
+            return false;
+        }
+        $pipeline = $this->redis->multi(\Redis::PIPELINE);
+        foreach ($pairs as $key => $value) {
+            if ($ttl) {
+                $pipeline->setex($key, $ttl, $value);
+            } else {
+                $pipeline->set($key, $value);
+            }
+        }
+        $pipeline->exec();
+        return true;
+    }
+    /**
+    * Takes a short lived lock in a single command.
+    *
+    * There is no release: the key expires. A caller that loses the race must not
+    * wait for it, because a queue of waiting workers costs far more than the
+    * duplicated work the lock was meant to avoid.
+    *
+    * @param string $key
+    * @param int $ttl milliseconds
+    * @return bool true when this process took the lock
+    */
+    public function acquireLock($key, $ttl)
+    {
+        if (!$this->config['enabled']) {
+            return true;
+        }
+        return (bool) $this->redis->set($key, 1, ['NX', 'PX' => max(1, (int) $ttl)]);
+    }
+    /**
     * Remove specified keys .
     *
     * @param mixed $keys: string with key or array of keys
@@ -137,17 +179,26 @@ class Redis
     */
     public function deleteByMask($name)
     {
-        if ($this->connected) {
-            $mask = sprintf('%s*', $name);
-            $script = "local keys = redis.call('keys', ARGV[1]); if #keys == 0 then return 0 end; return redis.call('del', unpack(keys))";
-            try {
-                $this->redis->eval($script, [$this->config['namespace'] . $mask], 0);
-            } catch (\Throwable $e) {
-                if (strpos($e->getMessage(), 'No method with name eval') === false) {
-                    throw $e;
-                }
-                $this->redis->evaluate($script, [$this->config['namespace'] . $mask]);
+        if (!$this->connected) {
+            return 0;
+        }
+        $mask = sprintf('%s*', $name);
+        // SCAN instead of KEYS: the same work, without blocking the server for
+        // the whole keyspace. Deleting inside the script keeps the pattern and
+        // the keys on the server side, past any client key prefixing.
+        $script = "local cursor = '0' local deleted = 0 repeat"
+            . " local res = redis.call('SCAN', cursor, 'MATCH', ARGV[1], 'COUNT', 500)"
+            . " cursor = res[1]"
+            . " if #res[2] > 0 then deleted = deleted + redis.call('DEL', unpack(res[2])) end"
+            . " until cursor == '0' return deleted";
+        try {
+            return (int) $this->redis->eval($script, [$this->config['namespace'] . $mask], 0);
+        } catch (\Throwable $e) {
+            // Only an old wrapper without eval() is worth retrying as evaluate().
+            if (strpos($e->getMessage(), 'No method with name eval') === false) {
+                throw $e;
             }
+            return (int) $this->redis->evaluate($script, [$this->config['namespace'] . $mask]);
         }
     }
 }
