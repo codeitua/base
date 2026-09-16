@@ -1,7 +1,13 @@
 # Changelog
 
-## Unreleased
+## 2.1.1
 
+- `CodeIT\Cache\Redis::mget()` restores the previous error handler unconditionally instead of only when
+  `set_error_handler()` returned one. With no handler already installed (the common case) it returned
+  `null`, so the guard around unserializing missing keys was left installed for the rest of the process,
+  silencing every warning the application raised afterwards. Found by the new database/cache smoke tests
+  (`tests/Smoke`, `SMOKE_CACHE=redis`), the first thing in this repo to call `CodeIT\Cache\Redis` against
+  a real Redis server instead of the `FakeCache` test double.
 - `find()` reads the generation token and the cached ID list in one command instead of two, because
   the token moved out of the key and into the entry. The first `find()` of a request costs 2 cache
   commands rather than 3, entries superseded by a write are overwritten in place instead of orphaned

@@ -121,14 +121,16 @@ class Redis implements CacheInterface
             return;
         }
         try {
-            $oldHandler = set_error_handler('\\CodeIT\\Cache\\Redis::myHandler');
+            set_error_handler('\\CodeIT\\Cache\\Redis::myHandler');
             $ret = @$this->redis->mGet($keys);
         } catch (\Exception $e) {
             return [];
         } finally {
-            if (isset($oldHandler)) {
-                set_error_handler($oldHandler);
-            }
+            // restore_error_handler(), not a conditional re-set: set_error_handler()
+            // returns null when there was no previous handler, so "isset($old)" was
+            // false in that common case and myHandler stayed installed forever,
+            // silencing every warning in the app after the first mget() call.
+            restore_error_handler();
         }
         return $ret;
     }
