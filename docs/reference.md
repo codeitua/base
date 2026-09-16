@@ -370,13 +370,20 @@ Important methods:
 - `set()` - updates the current row and clears its cache.
 - `deleteById()` - deletes a row and clears its cache.
 - `delete()` - deletes by condition. Numeric conditions behave like delete-by-ID.
+- `getList($limit = false, $offset = 0, &$total = null)` - caches only the row ids (not the hydrated
+  list) and hydrates them through `mget()`, so an edited row shows through without rebuilding the list.
 - `cacheGet()`, `cacheSet()`, `cacheDelete()`, `cacheDeleteByMask()` - direct cache helpers.
 
 When caching is enabled, be careful with custom write queries. If a subclass updates or deletes data without using `set()`, `update()`, `delete()`, or `deleteById()`, it must clear the relevant cache keys itself with `cacheDelete()` and `invalidateFindCache()`.
 
 A cache miss takes a rebuild guard so that several processes do not rebuild the same entry at once. It is one `acquireLock()` command released by expiry, it never blocks, and a caller that loses it reads the row once more and then rebuilds anyway. `$rebuildLockTtl` sets the hold time in milliseconds and `0` switches it off. This guard only de-duplicates cache rebuilds: it is not a consistency mechanism, and the transaction helpers and `getLock()`/`releaseLock()` mutex on `AppTable` remain what guards a write.
 
-Rows handed back by `get()`, `mget()` and `find()` are shared, so treat them as read-only; mutating one corrupts the cached copy for every other caller.
+`get()` and `mget()` also remember what they already read for the rest of the request (a per-request
+identity map), so asking for the same row again is free and a batched read only asks for the ids it
+does not already hold. Rows handed back by `get()`, `mget()` and `find()` are shared through this map,
+so treat them as read-only; mutating one corrupts the cached copy for every other caller. `$localRowCache
+= false` opts a model out; a worker that keeps the process alive between requests (RoadRunner, Swoole)
+must call `CachedTable::forgetLocalRows()` itself, since php-fpm resets statics on its own.
 
 Extended example:
 

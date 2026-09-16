@@ -49,6 +49,7 @@
     "cs:fix": "phpcbf",
     "test": "phpunit",
     "test:unit": "phpunit --testsuite unit",
+    "test:smoke": "phpunit --testsuite smoke",
     "bench": "@php bin/benchmark.php"
   },
   "config": {

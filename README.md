@@ -47,6 +47,19 @@ composer cs
 composer test
 ```
 
+`composer test` also runs `tests/Smoke`, which exercises `AppTable`/`CachedTable`
+against a real database (admin vs. client `$publicOnly` reads, and writes that
+must invalidate the cache) instead of the stubs the rest of the suite uses. It
+skips itself when no database is reachable.
+
+```bash
+docker compose up -d          # MariaDB on localhost:3306, Redis on localhost:16379
+composer test:smoke
+
+SMOKE_DB=sqlite composer test:smoke                                       # no docker: in-memory SQLite instead
+SMOKE_CACHE=redis SMOKE_REDIS_PORT=16379 composer test:smoke              # cache reads/invalidation through real Redis (needs ext-redis)
+```
+
 ## Coding Standard
 
 All hand-maintained PHP source and tests must follow PSR-12. Run `composer cs` before committing and

@@ -3,6 +3,10 @@
     <testsuites>
         <testsuite name="unit">
             <directory>tests</directory>
+            <exclude>tests/Smoke</exclude>
+        </testsuite>
+        <testsuite name="smoke">
+            <directory>tests/Smoke</directory>
         </testsuite>
     </testsuites>
 </phpunit>
