@@ -239,6 +239,21 @@ final class CachedTableTest extends TestCase
         self::assertSame(0, $table->getUncachedCalls);
     }
 
+    public function testGetListSkipsCountWhenTheWholeListIsAlreadyCached(): void
+    {
+        $table = $this->table();
+        $this->cache->store['table.news.list'] = [1, 2, 3];
+        foreach ($table->rows as $id => $row) {
+            $this->cache->store['table.news.' . $id] = new \ArrayObject($row, \ArrayObject::ARRAY_AS_PROPS);
+        }
+
+        $total = 0;
+        $rows = $table->getList(false, 0, $total);
+
+        self::assertSame(3, $total);
+        self::assertSame(0, $table->countCalls, 'A warm, unpaginated getList() must not query count() at all.');
+    }
+
     public function testAnEditedRowShowsThroughACachedList(): void
     {
         $table = $this->table();

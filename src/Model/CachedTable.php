@@ -823,7 +823,10 @@ class CachedTable extends AppTable
         $res = $this->mget($ids);
         if (!is_null($total)) {
             $total = sizeof($res);
-            if (!$offset || $total == $limit) {
+            // $cachedList: $ids is the whole table, so sizeof($res) is exact.
+            // Only a page (limit/offset) can hide rows past its window, so only
+            // that case still needs count().
+            if (!$cachedList && (!$offset || $total == $limit)) {
                 $total = $this->count();
             }
         }

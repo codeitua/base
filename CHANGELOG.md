@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.2
+
+- `CachedTable::getList()` no longer runs a `count()` query when it already served the whole,
+  unpaginated list from cache: `$ids` in that case is the full table, so `sizeof($res)` was already
+  the exact total, and the `count()` call happening anyway meant a caller passing `$total` never
+  actually got a zero-query warm read. `count()` still runs for a paginated call (`$limit`/`$offset`
+  given), which is the only case that can hide rows past its window.
+
 ## 2.1.1
 
 - `CodeIT\Cache\Redis::mget()` restores the previous error handler unconditionally instead of only when

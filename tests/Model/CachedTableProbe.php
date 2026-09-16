@@ -36,6 +36,9 @@ class CachedTableProbe extends CachedTable
     /** @var int|null */
     public $queryTotal = null;
 
+    /** @var int */
+    public $countCalls = 0;
+
     public function __construct($table = 'news', $findCacheTtl = 0)
     {
         $this->table = $table;
@@ -99,6 +102,12 @@ class CachedTableProbe extends CachedTable
     {
         $this->deleted[] = $where;
         return true;
+    }
+
+    public function count($params = '')
+    {
+        $this->countCalls++;
+        return count($this->rows);
     }
 
     public function getLock($name, $params = false, $timeout = 10)
