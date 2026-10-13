@@ -4,7 +4,10 @@ declare(strict_types=1);
 
 namespace CodeIT\BaseTest\Model;
 
+use CodeIT\Model\CachedTable;
+use CodeIT\Model\LocalizableTable;
 use CodeIT\Utils\Registry;
+use Laminas\Db\Adapter\Adapter;
 use PHPUnit\Framework\TestCase;
 
 final class LocalizableTableTest extends TestCase
@@ -32,6 +35,117 @@ final class LocalizableTableTest extends TestCase
             2 => [1 => ['name' => 'Second'], 2 => ['name' => 'Другий']],
         ];
         return $table;
+    }
+
+    private function database(): Adapter
+    {
+        if (!extension_loaded('pdo_sqlite')) {
+            self::markTestSkipped('pdo_sqlite is required for localization query regression tests.');
+        }
+
+        $adapter = new Adapter(['driver' => 'Pdo_Sqlite', 'database' => ':memory:']);
+        $adapter->query(
+            'CREATE TABLE news (id INTEGER PRIMARY KEY, name TEXT, enabled INTEGER)',
+            Adapter::QUERY_MODE_EXECUTE
+        );
+        $adapter->query(
+            'CREATE TABLE newslocal (id INTEGER, lang INTEGER, name TEXT, content TEXT, PRIMARY KEY (id, lang))',
+            Adapter::QUERY_MODE_EXECUTE
+        );
+        foreach ([1 => 'First', 6 => 'Sixth'] as $id => $name) {
+            $adapter->query('INSERT INTO news (id, name, enabled) VALUES (?, ?, 1)', [$id, 'Base ' . $name]);
+            foreach ([1 => 'Default', 3 => 'English'] as $lang => $language) {
+                $adapter->query(
+                    'INSERT INTO newslocal (id, lang, name, content) VALUES (?, ?, ?, ?)',
+                    [$id, $lang, $language . ' ' . $name, $language . ' content ' . $name]
+                );
+            }
+        }
+        return $adapter;
+    }
+
+    private function databaseTable(Adapter $adapter, ?int $id = null): LocalizableTable
+    {
+        return new class ($adapter, $id) extends LocalizableTable {
+            public function __construct(Adapter $adapter, ?int $id)
+            {
+                $this->adapter = $adapter;
+                parent::__construct('news', $id);
+            }
+        };
+    }
+
+    public function testExplicitTranslationIdOverridesTheBoundRowId(): void
+    {
+        Registry::set('lang', 3);
+        $table = $this->databaseTable($this->database(), 6);
+
+        $translations = $table->getLocalData(['id' => 1]);
+
+        self::assertCount(2, $translations);
+        self::assertSame('Default First', $translations[1]->name);
+        self::assertSame('English First', $translations[3]->name);
+        foreach ($translations as $translation) {
+            self::assertSame(1, (int) $translation->id);
+        }
+    }
+
+    public function testTranslationQueriesWithoutAnExplicitIdKeepTheBoundRow(): void
+    {
+        Registry::set('lang', 3);
+        $table = $this->databaseTable($this->database(), 6);
+
+        $translations = $table->getLocalData();
+        self::assertCount(2, $translations);
+        self::assertSame('English Sixth', $translations[3]->name);
+
+        $filtered = $table->getLocalData(['lang' => 3]);
+        self::assertCount(1, $filtered);
+        self::assertSame(6, (int) $filtered[3]->id);
+    }
+
+    public function testBoundModelSingleReadsCacheTheRequestedTranslation(): void
+    {
+        Registry::set('lang', 3);
+        $adapter = $this->database();
+        $table = $this->databaseTable($adapter, 6);
+
+        self::assertSame('English First', $table->get(1)->name);
+        self::assertSame('English content First', $this->cache->store['table.news.1.3']->content);
+
+        // A raw write cannot invalidate the cache: this proves the next read is a cache hit.
+        $adapter->query('UPDATE newslocal SET name = ? WHERE id = 1 AND lang = 3', ['Changed behind cache']);
+        CachedTable::forgetLocalRows();
+        self::assertSame('English First', $this->databaseTable($adapter)->get(1)->name);
+
+        Registry::set('lang', 1);
+        self::assertSame('Default First', $this->databaseTable($adapter, 6)->get(1)->name);
+        self::assertSame('Default First', $this->cache->store['table.news.1.1']->name);
+        self::assertSame('English First', $this->cache->store['table.news.1.3']->name);
+    }
+
+    public function testBoundModelFindCachesTheRequestedTranslations(): void
+    {
+        Registry::set('lang', 3);
+        $adapter = $this->database();
+        $table = $this->databaseTable($adapter, 6);
+
+        $cold = $table->find([['enabled', '=', 1]], 0, 0, 'id asc');
+        self::assertSame('English First', $cold[1]->name);
+        self::assertSame('English Sixth', $cold[6]->name);
+        self::assertSame('English First', $this->cache->store['table.news.1']->localData[3]->name);
+        self::assertSame('English content First', $this->cache->store['table.news.1.3']->content);
+
+        $adapter->query('UPDATE newslocal SET name = ? WHERE id = 1 AND lang = 3', ['Changed behind cache']);
+        CachedTable::forgetLocalRows();
+        $warm = $this->databaseTable($adapter)->find([['enabled', '=', 1]], 0, 0, 'id asc');
+        self::assertSame('English First', $warm[1]->name);
+
+        Registry::set('lang', 1);
+        $otherLanguage = $this->databaseTable($adapter, 6)->find([['enabled', '=', 1]], 0, 0, 'id asc');
+        self::assertSame('Default First', $otherLanguage[1]->name);
+        self::assertSame('Default Sixth', $otherLanguage[6]->name);
+        self::assertSame('English First', $this->cache->store['table.news.1.3']->name);
     }
 
     public function testBatchedReadUsesTheKeysTheLanguageAwareGetWrites(): void
@@ -69,8 +183,10 @@ final class LocalizableTableTest extends TestCase
     public function testDeletingARowDoesNotTakeItsNumericNeighboursWithIt(): void
     {
         $table = $this->table();
-        foreach (['table.news.1', 'table.news.1.1', 'table.news.1.2',
-                  'table.news.10', 'table.news.10.1', 'table.news.123.2'] as $key) {
+        foreach (
+            ['table.news.1', 'table.news.1.1', 'table.news.1.2',
+                  'table.news.10', 'table.news.10.1', 'table.news.123.2'] as $key
+        ) {
             $this->cache->store[$key] = 'cached';
         }
 

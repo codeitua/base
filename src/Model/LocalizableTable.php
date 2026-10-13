@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace CodeIT\Model;
 
 use CodeIT\Utils\Registry;
+
 abstract class LocalizableTable extends CachedTable
 {
     /**
@@ -218,7 +219,8 @@ abstract class LocalizableTable extends CachedTable
         $select = new \Laminas\Db\Sql\Select();
         $select->columns(['*']);
         $select->from(['cl' => $this->locTable]);
-        if ($this->id) {
+        // An explicit row id takes precedence over the id this model is bound to.
+        if ($this->id && !(is_array($params) && array_key_exists('id', $params))) {
             $select->where(['id' => $this->id]);
         }
         //include all where settings
@@ -297,7 +299,11 @@ abstract class LocalizableTable extends CachedTable
                 $tValues[] = ':' . $key;
                 $fields[] = $key;
             }
-            $this->query('replace into `' . $this->locTable . '` (' . implode(', ', $fields) . ') values (' . implode(', ', $tValues) . ')', $data);
+            $this->query(
+                'replace into `' . $this->locTable . '` (' . implode(', ', $fields)
+                    . ') values (' . implode(', ', $tValues) . ')',
+                $data
+            );
         }
         $this->cacheDelete($this->id);
         if (!empty($this->name)) {

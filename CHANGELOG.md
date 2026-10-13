@@ -1,5 +1,17 @@
 # Changelog
 
+## 2.1.3
+
+- `LocalizableTable::getLocalData()` honours an explicitly requested row id instead of combining
+  it with the model's bound id. Reading another row through `get()` or `find()` now loads its
+  translations correctly, preventing untranslated fallback values from entering the language cache.
+  Calls without an explicit id still use the model's bound row, including additional filters.
+- Added SQL regression coverage for explicit and implicit row ids, cold and warm single and batch
+  reads, and isolation between language caches.
+
+Invalidate affected raw and per-language row cache entries once when upgrading: entries written
+before this fix can still contain untranslated fallback values.
+
 ## 2.1.2
 
 - `CachedTable::getList()` no longer runs a `count()` query when it already served the whole,
