@@ -515,6 +515,80 @@ if ($this->request->isPost()) {
 
 For localized editing, use `CodeIT\Form\MultilanguageForm`.
 
+#### Nested localized relations
+
+`LocalizableTable` merges the current language's top-level fields. It does not
+recursively translate objects attached by `getUncached()`. A parent that caches an
+already localized child in a language-independent row can therefore serve the
+first visitor's child language to every subsequent visitor, even while its own
+title and metadata use the correct language.
+
+`getUncached()` provides all translations as `localData`, keyed by language ID.
+`prepareCachedRow()` removes `localData` after merging the active language. If a
+parent needs those translations after `get()` or `find()`, preserve them in the
+child model's `getUncached()`:
+
+```php
+public function getUncached($id)
+{
+    $item = parent::getUncached($id);
+    $item->translations = $item->localData;
+    return $item;
+}
+```
+
+`translations` in this example is an application-defined property, not a built-in
+base-class API. It holds the same translation objects; the array assignment uses
+PHP copy-on-write rather than deep-copying the collection. Every nested localized
+model used by the parent must expose the same complete contract. For example, a
+FAQ collection hydrates its ordered questions through `find()` in `getUncached()`,
+and both collection and question models preserve their loaded translations.
+
+In the parent's `getUncached()`, load the child once and select its already loaded
+translations for each parent language. With application models `FaqCollectionTable`
+and `FaqQuestionTable`, the relation portion is:
+
+```php
+$item = parent::getUncached($id);
+$item->faq = null;
+if (!empty($item->faqId)) {
+    $faq = (new FaqCollectionTable())->get((int) $item->faqId);
+    foreach ($item->localData as $language => $translation) {
+        $translation->faq = clone $faq;
+        $translation->faq->title = $faq->translations[$language]->title ?? '';
+        foreach ($faq->questions as $questionId => $question) {
+            $translation->faq->questions[$questionId] = $question->translations[$language] ?? null;
+        }
+    }
+}
+```
+
+The parent language row now supplies its localized FAQ when normal localization
+merges that row. Clone only the child wrapper being modified: cached objects may
+be shared with other callers. Reuse question translation objects directly and
+treat them as read-only. Missing translations above produce empty/null values;
+the application's completeness check must omit that language's FAQ in both HTML
+and structured data instead of substituting another language.
+
+Keep database/cache reads outside the language loop. Use `get()` for one
+dependency and `find()`/`mget()` for a collection; do not fetch the same child once
+per language, switch the registry language, or hydrate relations after a cached
+parent read. A warm parent must already contain its complete nested data. This
+trades some serialized payload size for fewer cache/database round trips and is
+appropriate for small embedded collections.
+
+Row invalidation does not discover other rows containing embedded copies. The
+application must invalidate child rows, containing collections, and every parent
+snapshot after dependency edits, including parent row/language/slug entries.
+When adding the translation property to existing models, invalidate old child
+and parent entries before relying on the new contract. Do not add fallback loads
+in consumers to repair old cache shapes.
+
+Test both cold and warm reads, priming with each supported language before reading
+the others. Check nested titles, questions, answers, ordering, missing translations,
+and dependency edits. A correct parent title or JSON-LD `inLanguage` alone does not
+prove that the nested text is localized correctly.
+
 ## Form Classes And View Helpers
 
 ### `CodeIT\View\Helper\WrappedForm`
