@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Make `laminas/laminas-mvc` optional for consumers such as Mezzio applications. Existing
+  controllers and plugins still require MVC; it remains installed for library development tests.
+- Preserve the existing PHP 8.1+ contract and all model/cache APIs.
+
 ## 2.1.3
 
 - `LocalizableTable::getLocalData()` honours an explicitly requested row id instead of combining

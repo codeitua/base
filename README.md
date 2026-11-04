@@ -5,10 +5,24 @@ Reusable CodeIT base utilities for Laminas applications.
 ## Requirements
 
 - PHP `^8.1`
-- Laminas MVC `^3.8`
+- Laminas MVC `^3.8` only when using the optional MVC controllers and plugins
 - Current Laminas component packages for DB, forms, filters, validators, view helpers, and service manager
 
 The package intentionally allows PHP 8.1+ instead of pinning to PHP 8.3/8.4. Applications can run it on PHP 8.3 while libraries and CI can still cover PHP 8.1 and 8.2 where the Laminas dependency set supports them.
+
+## Mezzio and other PSR-15 applications
+
+Models, caching, forms, and utilities can be used without installing Laminas MVC.
+Mezzio is supplied by the consuming application; this library does not require an HTTP framework.
+Wire the existing `dbAdapter` and `cache` services into your PSR container and register it as
+`CodeIT\Utils\Registry::set('sm', $container)` for the model infrastructure.
+Use `CodeIT\Model\AppTable`, `CachedTable`, and `LocalizableTable` directly as before.
+The complete-row cache, cached list invalidation, and multilingual behavior are unchanged.
+
+Applications using `CodeIT\Controller` or `CodeIT\Controller\Plugin` must explicitly install
+`laminas/laminas-mvc:^3.8`. MVC remains a development dependency so the existing adapters
+continue to be tested. Applications removing a Composer package override can use this
+repository's Composer metadata directly.
 
 ## What Changed In 2.0
 
