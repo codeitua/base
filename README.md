@@ -10,7 +10,7 @@ Reusable CodeIT base utilities for Laminas applications.
 
 The package intentionally allows PHP 8.1+ instead of pinning to PHP 8.3/8.4. Applications can run it on PHP 8.3 while libraries and CI can still cover PHP 8.1 and 8.2 where the Laminas dependency set supports them.
 
-## Mezzio and other PSR-15 applications
+## Mezzio and other PSR-15 applications (2.2.0+)
 
 Models, caching, forms, and utilities can be used without installing Laminas MVC.
 Mezzio is supplied by the consuming application; this library does not require an HTTP framework.

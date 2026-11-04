@@ -1,5 +1,25 @@
 # Upgrade Guide
 
+## 2.1.x to 2.2.0
+
+Version 2.2.0 makes Laminas MVC optional so Mezzio and other PSR-15 applications can
+install the model/cache library without the MVC runtime. No model API or cache format changes
+are introduced by this release; an existing 2.1.3 cache does not need flushing for this update.
+
+For MVC applications, declare the previously transitive dependency explicitly before updating:
+
+```bash
+composer require laminas/laminas-mvc:^3.8 codeit/base:^2.2
+```
+
+Mezzio applications keep their own HTTP stack and PSR container. Register the container with
+`CodeIT\Utils\Registry::set('sm', $container)` and provide `dbAdapter` and `cache` services.
+Do not use the optional CodeIT MVC controllers/plugins without installing Laminas MVC.
+See [the Mezzio integration notice](README.md#mezzio-and-other-psr-15-applications-220).
+
+The release version comes from the `2.2.0` Git tag, following the existing release convention;
+Composer's package metadata does not hard-code a version.
+
 ## 1.x to 2.x
 
 1. Replace all `Zend\*` imports in consuming code with `Laminas\*`.
